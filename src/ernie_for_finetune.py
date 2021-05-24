@@ -28,8 +28,9 @@ from mindspore.nn.wrap.grad_reducer import DistributedGradReducer
 from mindspore.context import ParallelMode
 from mindspore.communication.management import get_group_size
 from mindspore import context
-from .finetune_eval_model import ErnieCLSModel
-from .utils import CrossEntropyCalculation
+from src.finetune_eval_model import ErnieCLSModel, ErnieNERModel
+from src.utils import CrossEntropyCalculation
+from src.crf import CRF
 
 GRADIENT_CLIP_TYPE = 1
 GRADIENT_CLIP_VALUE = 1.0
@@ -194,4 +195,29 @@ class ErnieCLS(nn.Cell):
     def construct(self, input_ids, input_mask, token_type_id, label_ids):
         logits = self.ernie(input_ids, input_mask, token_type_id)
         loss = self.loss(logits, label_ids, self.num_labels)
+        return loss
+
+class ErnieNER(nn.Cell):
+    """
+    Train interface for sequence labeling finetuning task.
+    """
+    def __init__(self, config, batch_size, is_training, num_labels=11, use_crf=False,
+                 tag_to_index=None, dropout_prob=0.0, use_one_hot_embeddings=False):
+        super(ErnieNER, self).__init__()
+        self.ernie = ErnieNERModel(config, is_training, num_labels, use_crf, dropout_prob, use_one_hot_embeddings)
+        if use_crf:
+            if not tag_to_index:
+                raise Exception("The dict for tag-index mapping should be provided for CRF.")
+            self.loss = CRF(tag_to_index, batch_size, config.seq_length, is_training)
+        else:
+            self.loss = CrossEntropyCalculation(is_training)
+        self.num_labels = num_labels
+        self.use_crf = use_crf
+
+    def construct(self, input_ids, input_mask, token_type_id, label_ids):
+        logits = self.bert(input_ids, input_mask, token_type_id)
+        if self.use_crf:
+            loss = self.loss(logits, label_ids)
+        else:
+            loss = self.loss(logits, label_ids, self.num_labels)
         return loss

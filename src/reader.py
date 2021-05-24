@@ -22,7 +22,7 @@ import six
 import numpy as np
 from mindspore.mindrecord import FileWriter
 from mindspore.log import logging
-from tokenizer import FullTokenizer
+from src.tokenizer import FullTokenizer, convert_to_unicode
 
 def csv_reader(fd, delimiter='\t'):
     """
@@ -156,21 +156,21 @@ class BaseReader:
         # used as as the "sentence vector". Note that this only makes sense because
         # the entire model is fine-tuned.
         tokens = []
-        segment_ids = []
+        token_type_id = []
         tokens.append("[CLS]")
-        segment_ids.append(0)
+        token_type_id.append(0)
         for token in tokens_a:
             tokens.append(token)
-            segment_ids.append(0)
+            token_type_id.append(0)
         tokens.append("[SEP]")
-        segment_ids.append(0)
+        token_type_id.append(0)
 
         if tokens_b:
             for token in tokens_b:
                 tokens.append(token)
-                segment_ids.append(1)
+                token_type_id.append(1)
             tokens.append("[SEP]")
-            segment_ids.append(1)
+            token_type_id.append(1)
 
         input_ids = tokenizer.convert_tokens_to_ids(tokens)
 
@@ -179,7 +179,7 @@ class BaseReader:
         while len(input_ids) < max_seq_length:
             input_ids.append(0)
             input_mask.append(0)
-            segment_ids.append(0)
+            token_type_id.append(0)
 
         if self.label_map:
             label_id = self.label_map[example.label]
@@ -188,12 +188,12 @@ class BaseReader:
 
         Record = namedtuple(
             'Record',
-            ['input_ids', 'input_mask', 'segment_ids', 'label_id'])
+            ['input_ids', 'input_mask', 'token_type_id', 'label_id'])
 
         record = Record(
             input_ids=input_ids,
             input_mask=input_mask,
-            segment_ids=segment_ids,
+            token_type_id=token_type_id,
             label_id=label_id)
         return record
 
@@ -205,33 +205,6 @@ class BaseReader:
     def get_examples(self, input_file):
         examples = self._read_tsv(input_file)
         return examples
-
-    def file_based_convert_examples_to_features(self, input_file, output_file):
-        """"Convert a set of `InputExample`s to a MindDataset file."""
-        examples = self._read_tsv(input_file)
-
-        writer = FileWriter(file_name=output_file, shard_num=1)
-        nlp_schema = {
-            "input_ids": {"type": "int64", "shape": [-1]},
-            "input_mask": {"type": "int64", "shape": [-1]},
-            "segment_ids": {"type": "int64", "shape": [-1]},
-            "label_ids": {"type": "int64", "shape": [-1]},
-        }
-        writer.add_schema(nlp_schema, "proprocessed classification dataset")
-        data = []
-        for index, example in enumerate(examples):
-            if index % 10000 == 0:
-                logging.info("Writing example %d of %d" % (index, len(examples)))
-            record = self._convert_example_to_record(example, self.max_seq_len, self.tokenizer)
-            sample = {
-                "input_ids": np.array(record.input_ids, dtype=np.int64),
-                "input_mask": np.array(record.input_mask, dtype=np.int64),
-                "segment_ids": np.array(record.segment_ids, dtype=np.int64),
-                "label_ids": np.array([record.label_id], dtype=np.int64),
-            }
-            data.append(sample)
-        writer.write_raw_data(data)
-        writer.commit()
 
 class ClassifyReader(BaseReader):
     """ClassifyReader"""
@@ -254,6 +227,99 @@ class ClassifyReader(BaseReader):
                 example = Example(*line)
                 examples.append(example)
             return examples
+
+    def file_based_convert_examples_to_features(self, input_file, output_file):
+        """"Convert a set of `InputExample`s to a MindDataset file."""
+        examples = self._read_tsv(input_file)
+
+        writer = FileWriter(file_name=output_file, shard_num=1)
+        nlp_schema = {
+            "input_ids": {"type": "int64", "shape": [-1]},
+            "input_mask": {"type": "int64", "shape": [-1]},
+            "token_type_id": {"type": "int64", "shape": [-1]},
+            "label_ids": {"type": "int64", "shape": [-1]},
+        }
+        writer.add_schema(nlp_schema, "proprocessed classification dataset")
+        data = []
+        for index, example in enumerate(examples):
+            if index % 10000 == 0:
+                logging.info("Writing example %d of %d" % (index, len(examples)))
+            record = self._convert_example_to_record(example, self.max_seq_len, self.tokenizer)
+            sample = {
+                "input_ids": np.array(record.input_ids, dtype=np.int64),
+                "input_mask": np.array(record.input_mask, dtype=np.int64),
+                "token_type_id": np.array(record.token_type_id, dtype=np.int64),
+                "label_ids": np.array([record.label_id], dtype=np.int64),
+            }
+            data.append(sample)
+        writer.write_raw_data(data)
+        writer.commit()
+
+class SequenceLabelingReader(BaseReader):
+    def _convert_example_to_record(self, example, max_seq_length, tokenizer):
+        tokens = convert_to_unicode(example.text_a).split(u" ")
+        labels = convert_to_unicode(example.label).split(u" ")
+        tokens, labels = self._reseg_token_label(tokens, labels, tokenizer)
+
+        if len(tokens) > max_seq_length - 2:
+            tokens = tokens[0:(max_seq_length - 2)]
+            labels = labels[0:(max_seq_length - 2)]
+
+        tokens = ["[CLS]"] + tokens + ["[SEP]"]
+        input_ids = tokenizer.convert_tokens_to_ids(tokens)
+        no_entity_id = len(self.label_map) - 1
+        label_ids = [no_entity_id] + [self.label_map[label] for label in labels] + [no_entity_id]
+        input_mask = [1] * len(input_ids)
+        token_type_id = [0] * len(input_ids)
+
+        while len(input_ids) < max_seq_length:
+            input_ids.append(0)
+            input_mask.append(0)
+            token_type_id.append(0)
+            label_ids.append(no_entity_id)
+        
+        Record = namedtuple(
+            'Record',
+            ['input_ids', 'input_mask', 'token_type_id', 'label_ids'])
+
+        record = Record(
+            input_ids=input_ids,
+            input_mask=input_mask,
+            token_type_id=token_type_id,
+            label_id=label_ids)
+        return record
+
+    def _reseg_token_label(self, tokens, labels, tokenizer):
+        assert len(tokens) == len(tokens)
+        ret_tokens, ret_labels = [], []
+        for token, label in zip(tokens, labels):
+            sub_token = tokenizer.tokenize(token)
+            if len(sub_token) == 0:
+                continue
+            ret_tokens.extend(sub_token)
+            if len(sub_token) == 1:
+                ret_labels.append(label)
+                continue
+
+            if label == "O" or label.startswith("I-"):
+                ret_labels.extend([label] * len(sub_token))
+            elif label.startswith("B-"):
+                i_label = "I-" + label[2:]
+                ret_labels.extend([label] + [i_label] * (len(sub_token) - 1))
+            elif label.startswith("S-"):
+                b_laebl = "B-" + label[2:]
+                e_label = "E-" + label[2:]
+                i_label = "I-" + label[2:]
+                ret_labels.extend([b_laebl] + [i_label] * (len(sub_token) - 2) + [e_label])
+            elif label.startswith("E-"):
+                i_label = "I-" + label[2:]
+                ret_labels.extend([i_label] * (len(sub_token) - 1) + [label])
+
+        assert len(ret_tokens) == len(ret_labels)
+        return ret_tokens, ret_labels
+
+    def file_based_convert_examples_to_features(self, input_file, output_file):
+        pass
 
 def main():
     parser = argparse.ArgumentParser(description="read dataset and save it to minddata")

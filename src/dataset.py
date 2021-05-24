@@ -27,10 +27,10 @@ def create_classification_dataset(batch_size=1,
     """create finetune or evaluation dataset"""
     type_cast_op = C.TypeCast(mstype.int32)
     data_set = ds.MindDataset([data_file_path],
-                              columns_list=["input_ids", "input_mask", "segment_ids", "label_ids"],
+                              columns_list=["input_ids", "input_mask", "token_type_id", "label_ids"],
                               shuffle=do_shuffle)
     data_set = data_set.map(operations=type_cast_op, input_columns="label_ids")
-    data_set = data_set.map(operations=type_cast_op, input_columns="segment_ids")
+    data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
     data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
     data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
     data_set = data_set.repeat(repeat_count)
