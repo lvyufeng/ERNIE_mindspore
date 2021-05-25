@@ -215,7 +215,7 @@ class ErnieNER(nn.Cell):
         self.use_crf = use_crf
 
     def construct(self, input_ids, input_mask, token_type_id, label_ids):
-        logits = self.bert(input_ids, input_mask, token_type_id)
+        logits = self.ernie(input_ids, input_mask, token_type_id)
         if self.use_crf:
             loss = self.loss(logits, label_ids)
         else:

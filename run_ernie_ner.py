@@ -151,14 +151,14 @@ def parse_args():
         raise ValueError("'train_data_file_path' must be set when do finetune task")
     if args_opt.do_eval.lower() == "true" and args_opt.eval_data_file_path == "":
         raise ValueError("'eval_data_file_path' must be set when do evaluation task")
-    if args_opt.assessment_method.lower() == "clue_benchmark" and args_opt.vocab_file_path == "":
-        raise ValueError("'vocab_file_path' must be set to do clue benchmark")
-    if args_opt.use_crf.lower() == "true" and args_opt.label_file_path == "":
-        raise ValueError("'label_file_path' must be set to use crf")
-    if args_opt.assessment_method.lower() == "clue_benchmark" and args_opt.label_file_path == "":
-        raise ValueError("'label_file_path' must be set to do clue benchmark")
-    if args_opt.assessment_method.lower() == "clue_benchmark":
-        args_opt.eval_batch_size = 1
+    # if args_opt.assessment_method.lower() == "clue_benchmark" and args_opt.vocab_file_path == "":
+    #     raise ValueError("'vocab_file_path' must be set to do clue benchmark")
+    # if args_opt.use_crf.lower() == "true" and args_opt.label_file_path == "":
+    #     raise ValueError("'label_file_path' must be set to use crf")
+    # if args_opt.assessment_method.lower() == "clue_benchmark" and args_opt.label_file_path == "":
+    #     raise ValueError("'label_file_path' must be set to do clue benchmark")
+    # if args_opt.assessment_method.lower() == "clue_benchmark":
+    #     args_opt.eval_batch_size = 1
     return args_opt
 
 
@@ -166,7 +166,7 @@ def run_ner():
     """run ner task"""
     args_opt = parse_args()
     epoch_num = args_opt.epoch_num
-    assessment_method = args_opt.assessment_method.lower()
+    assessment_method = "f1"
     load_pretrain_checkpoint_path = args_opt.load_pretrain_checkpoint_path
     save_finetune_checkpoint_path = args_opt.save_finetune_checkpoint_path
     load_finetune_checkpoint_path = args_opt.load_finetune_checkpoint_path
@@ -183,17 +183,18 @@ def run_ner():
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
     label_list = []
-    with open(args_opt.label_file_path) as f:
-        for label in f:
-            label_list.append(label.strip())
-    tag_to_index = convert_labels_to_index(label_list)
-    if args_opt.use_crf.lower() == "true":
-        max_val = max(tag_to_index.values())
-        tag_to_index["<START>"] = max_val + 1
-        tag_to_index["<STOP>"] = max_val + 2
-        number_labels = len(tag_to_index)
-    else:
-        number_labels = len(tag_to_index)
+    # with open(args_opt.label_file_path) as f:
+    #     for label in f:
+    #         label_list.append(label.strip())
+    # tag_to_index = convert_labels_to_index(label_list)
+    # if args_opt.use_crf.lower() == "true":
+    #     max_val = max(tag_to_index.values())
+    #     tag_to_index["<START>"] = max_val + 1
+    #     tag_to_index["<STOP>"] = max_val + 2
+    #     number_labels = len(tag_to_index)
+    # else:
+    number_labels = 7
+    tag_to_index = None
     if args_opt.do_train.lower() == "true":
         netwithloss = ErnieNER(ernie_net_cfg, args_opt.train_batch_size, True, num_labels=number_labels,
                               use_crf=(args_opt.use_crf.lower() == "true"),

@@ -16,7 +16,7 @@
 
 CUR_DIR=`pwd`
 DATA_PATH=${CUR_DIR}/data
-MODEL_PATH=${CUR_DIR}/pretrain_models/
+MODEL_PATH=${CUR_DIR}/pretrain_models
 
 # ner task
 # train dataset
@@ -24,7 +24,7 @@ python ${CUR_DIR}/src/reader.py  \
     --data_type="sequencelabeling" \
     --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
-    --max_seq_len=512 \
+    --max_seq_len=256 \
     --do_lower_case="true" \
     --random_seed=1 \
     --input_file="${DATA_PATH}/msra_ner/train.tsv" \
@@ -35,7 +35,7 @@ python ${CUR_DIR}/src/reader.py  \
     --data_type="sequencelabeling" \
     --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
-    --max_seq_len=512 \
+    --max_seq_len=256 \
     --do_lower_case="true" \
     --random_seed=1 \
     --input_file="${DATA_PATH}/msra_ner/dev.tsv" \
@@ -46,7 +46,7 @@ python ${CUR_DIR}/src/reader.py  \
     --data_type="sequencelabeling" \
     --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
-    --max_seq_len=512 \
+    --max_seq_len=256 \
     --do_lower_case="true" \
     --random_seed=1 \
     --input_file="${DATA_PATH}/msra_ner/test.tsv" \

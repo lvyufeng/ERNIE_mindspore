@@ -14,7 +14,7 @@
 # ============================================================================
 
 '''
-Bert finetune and evaluation model script.
+Ernie finetune and evaluation model script.
 '''
 
 import mindspore.nn as nn
@@ -67,7 +67,7 @@ class ErnieNERModel(nn.Cell):
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.hidden_probs_dropout_prob = 0.0
-        self.bert = ErnieModel(config, is_training, use_one_hot_embeddings)
+        self.ernie = ErnieModel(config, is_training, use_one_hot_embeddings)
         self.cast = P.Cast()
         self.weight_init = TruncatedNormal(config.initializer_range)
         self.log_softmax = P.LogSoftmax(axis=-1)
@@ -84,7 +84,7 @@ class ErnieNERModel(nn.Cell):
     def construct(self, input_ids, input_mask, token_type_id):
         """Return the final logits as the results of log_softmax."""
         sequence_output, _, _ = \
-            self.bert(input_ids, token_type_id, input_mask)
+            self.ernie(input_ids, token_type_id, input_mask)
         seq = self.dropout(sequence_output)
         seq = self.reshape(seq, self.shape)
         logits = self.dense_1(seq)

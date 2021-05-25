@@ -137,3 +137,4 @@ save_models/
 analyze_fail.dat
 pretrain_models/
 __pycache__
+somas_meta/

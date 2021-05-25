@@ -40,7 +40,7 @@ optimizer_cfg = edict({
 })
 
 ernie_net_cfg = ErnieConfig(
-    seq_length=64,
+    seq_length=256,
     vocab_size=18000,
     hidden_size=768,
     num_hidden_layers=12,
