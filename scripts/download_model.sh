@@ -14,14 +14,14 @@
 # limitations under the License.
 # ============================================================================
 mkdir -p pretrain_models
-cd pretrain_models
-
+mkdir -p pretrain_models/ernie
+cd pretrain_models/ernie
 # download pretrain model file to ./pretrain_models/
-MODEL_ERNIE=https://baidu-nlp.bj.bcebos.com/emotion_detection_ernie_finetune-1.0.0.tar.gz
+MODEL_ERNIE=https://baidu-nlp.bj.bcebos.com/ERNIE_stable-1.0.1.tar.gz
 wget --no-check-certificate ${MODEL_ERNIE}
 
 # tar xvf emotion_detection_textcnn-1.0.0.tar.gz
-tar xvf emotion_detection_ernie_finetune-1.0.0.tar.gz
+tar -zxvf ERNIE_stable-1.0.1.tar.gz
 
 # /bin/rm emotion_detection_textcnn-1.0.0.tar.gz
-/bin/rm emotion_detection_ernie_finetune-1.0.0.tar.gz
+/bin/rm ERNIE_stable-1.0.1.tar.gz
