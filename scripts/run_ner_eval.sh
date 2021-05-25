@@ -14,9 +14,7 @@
 # limitations under the License.
 # ============================================================================
 mkdir -p ms_log
-mkdir -p save_models
 CUR_DIR=`pwd`
-MODEL_PATH=${CUR_DIR}/pretrain_models
 DATA_PATH=${CUR_DIR}/data
 SAVE_PATH=${CUR_DIR}/save_models
 export GLOG_log_dir=${CUR_DIR}/ms_log
@@ -25,16 +23,12 @@ python ${CUR_DIR}/run_ernie_ner.py  \
     --device_target="Ascend" \
     --number_labels=7 \
     --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
-    --do_train="true" \
+    --do_train="false" \
     --do_eval="true" \
-    --device_id=0 \
-    --epoch_num=6 \
+    --device_id=4 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
-    --train_batch_size=16 \
-    --eval_batch_size=16 \
-    --save_finetune_checkpoint_path="${SAVE_PATH}" \
-    --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
-    --train_data_file_path="${DATA_PATH}/msra_ner_train.mindrecord" \
-    --eval_data_file_path="${DATA_PATH}/msra_ner_dev.mindrecord" \
-    --schema_file_path="" > ${GLOG_log_dir}/train_ner_log.txt 2>&1 &
+    --eval_batch_size=32 \
+    --load_finetune_checkpoint_path="${SAVE_PATH}/ner-6_1304.ckpt" \
+    --eval_data_file_path="${DATA_PATH}/msra_ner_test.mindrecord" \
+    --schema_file_path="" > ${GLOG_log_dir}/eval_ner_log.txt 2>&1 &

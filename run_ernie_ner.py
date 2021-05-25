@@ -20,11 +20,12 @@ Bert finetune and evaluation script.
 import os
 import argparse
 import time
+import json
 from src.ernie_for_finetune import ErnieFinetuneCell, ErnieNER
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
 from src.dataset import create_ner_dataset
-from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate, convert_labels_to_index
-from src.assessment_method import Accuracy, F1
+from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
+from src.assessment_method import SpanF1
 import mindspore.common.dtype as mstype
 from mindspore import context
 from mindspore import log as logger
@@ -97,7 +98,7 @@ def do_eval(dataset=None, network=None, use_crf="", num_class=41, assessment_met
     load_param_into_net(net_for_pretraining, param_dict)
     model = Model(net_for_pretraining)
 
-    callback = F1((use_crf.lower() == "true"), num_class)
+    callback = SpanF1((use_crf.lower() == "true"), tag_to_index)
         
     columns_list = ["input_ids", "input_mask", "token_type_id", "label_ids"]
     for data in dataset.create_dict_iterator(num_epochs=1):
@@ -123,6 +124,8 @@ def parse_args():
                         help="Eable eval, default is false")
     parser.add_argument("--use_crf", type=str, default="false", choices=["true", "false"],
                         help="Use crf, default is false")
+    parser.add_argument("--number_labels", type=int, default=0, help='Number of NER labels, default is 0')
+    parser.add_argument("--label_map_config", type=str, default="", help="Label map file path")
     parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
     parser.add_argument("--epoch_num", type=int, default=5, help="Epoch number, default is 5.")
     parser.add_argument("--train_data_shuffle", type=str, default="true", choices=["true", "false"],
@@ -182,19 +185,12 @@ def run_ner():
             context.set_context(enable_graph_kernel=True)
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
-    label_list = []
     # with open(args_opt.label_file_path) as f:
     #     for label in f:
     #         label_list.append(label.strip())
-    # tag_to_index = convert_labels_to_index(label_list)
-    # if args_opt.use_crf.lower() == "true":
-    #     max_val = max(tag_to_index.values())
-    #     tag_to_index["<START>"] = max_val + 1
-    #     tag_to_index["<STOP>"] = max_val + 2
-    #     number_labels = len(tag_to_index)
-    # else:
-    number_labels = 7
-    tag_to_index = None
+    with open(args_opt.label_map_config) as f:
+        tag_to_index = json.load(f)
+    number_labels = args_opt.number_labels
     if args_opt.do_train.lower() == "true":
         netwithloss = ErnieNER(ernie_net_cfg, args_opt.train_batch_size, True, num_labels=number_labels,
                               use_crf=(args_opt.use_crf.lower() == "true"),

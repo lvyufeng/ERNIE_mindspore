@@ -166,22 +166,6 @@ class ErnieLearningRate(LearningRateSchedule):
             lr = decay_lr
         return lr
 
-
-def convert_labels_to_index(label_list):
-    """
-    Convert label_list to indices for NER task.
-    """
-    label2id = collections.OrderedDict()
-    label2id["O"] = 0
-    prefix = ["S_", "B_", "M_", "E_"]
-    index = 0
-    for label in label_list:
-        for pre in prefix:
-            index += 1
-            sub_label = pre + label
-            label2id[sub_label] = index
-    return label2id
-
 def _get_poly_lr(global_step, lr_init, lr_end, lr_max, warmup_steps, total_steps, poly_power):
     """
     generate learning rate array
