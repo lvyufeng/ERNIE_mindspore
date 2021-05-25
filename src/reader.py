@@ -19,10 +19,12 @@ Dataset reader for preprocessing and converting dataset into MindRecord.
 import io
 import argparse
 import six
+import json
 import numpy as np
+from collections import namedtuple
 from mindspore.mindrecord import FileWriter
 from mindspore.log import logging
-from src.tokenizer import FullTokenizer, convert_to_unicode
+from tokenizer import FullTokenizer, convert_to_unicode
 
 def csv_reader(fd, delimiter='\t'):
     """
@@ -257,8 +259,8 @@ class ClassifyReader(BaseReader):
 
 class SequenceLabelingReader(BaseReader):
     def _convert_example_to_record(self, example, max_seq_length, tokenizer):
-        tokens = convert_to_unicode(example.text_a).split(u" ")
-        labels = convert_to_unicode(example.label).split(u" ")
+        tokens = convert_to_unicode(example.text_a).split(u"")
+        labels = convert_to_unicode(example.label).split(u"")
         tokens, labels = self._reseg_token_label(tokens, labels, tokenizer)
 
         if len(tokens) > max_seq_length - 2:
@@ -286,7 +288,7 @@ class SequenceLabelingReader(BaseReader):
             input_ids=input_ids,
             input_mask=input_mask,
             token_type_id=token_type_id,
-            label_id=label_ids)
+            label_ids=label_ids)
         return record
 
     def _reseg_token_label(self, tokens, labels, tokenizer):
@@ -319,10 +321,39 @@ class SequenceLabelingReader(BaseReader):
         return ret_tokens, ret_labels
 
     def file_based_convert_examples_to_features(self, input_file, output_file):
-        pass
+        """"Convert a set of `InputExample`s to a MindDataset file."""
+        examples = self._read_tsv(input_file)
 
+        writer = FileWriter(file_name=output_file, shard_num=1)
+        nlp_schema = {
+            "input_ids": {"type": "int64", "shape": [-1]},
+            "input_mask": {"type": "int64", "shape": [-1]},
+            "token_type_id": {"type": "int64", "shape": [-1]},
+            "label_ids": {"type": "int64", "shape": [-1]},
+        }
+        writer.add_schema(nlp_schema, "proprocessed classification dataset")
+        data = []
+        for index, example in enumerate(examples):
+            if index % 10000 == 0:
+                logging.info("Writing example %d of %d" % (index, len(examples)))
+            record = self._convert_example_to_record(example, self.max_seq_len, self.tokenizer)
+            sample = {
+                "input_ids": np.array(record.input_ids, dtype=np.int64),
+                "input_mask": np.array(record.input_mask, dtype=np.int64),
+                "token_type_id": np.array(record.token_type_id, dtype=np.int64),
+                "label_ids": np.array([record.label_ids], dtype=np.int64),
+            }
+            data.append(sample)
+        writer.write_raw_data(data)
+        writer.commit()
+
+reader_dict = {
+    'classify': ClassifyReader,
+    'sequencelabeling': SequenceLabelingReader
+}
 def main():
     parser = argparse.ArgumentParser(description="read dataset and save it to minddata")
+    parser.add_argument("--data_type", type=str, default="", help="data type to preprocess")
     parser.add_argument("--vocab_path", type=str, default="", help="vocab file")
     parser.add_argument("--label_map_config", type=str, default=None, help="label mapping config file")
     parser.add_argument("--max_seq_len", type=int, default=128,
@@ -336,7 +367,7 @@ def main():
     parser.add_argument("--input_file", type=str, default="", help="raw data file")
     parser.add_argument("--output_file", type=str, default="", help="minddata file")
     args_opt = parser.parse_args()
-    reader = ClassifyReader(
+    reader = reader_dict[args_opt.data_type](
         vocab_path=args_opt.vocab_path,
         label_map_config=args_opt.label_map_config,
         max_seq_len=args_opt.max_seq_len,
