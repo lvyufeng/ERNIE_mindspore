@@ -138,3 +138,4 @@ analyze_fail.dat
 pretrain_models/
 __pycache__
 somas_meta/
+task_error_dump/

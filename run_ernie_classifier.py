@@ -88,7 +88,7 @@ def do_eval(dataset=None, network=None, num_class=2, load_checkpoint_path=""):
     callback = Accuracy()
 
     evaluate_times = []
-    columns_list = ["input_ids", "input_mask", "segment_ids", "label_ids"]
+    columns_list = ["input_ids", "input_mask", "token_type_id", "label_ids"]
     for data in dataset.create_dict_iterator(num_epochs=1):
         input_data = []
         for i in columns_list:

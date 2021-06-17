@@ -13,13 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-mkdir -p pretrain_models
-mkdir -p pretrain_models/ernie
-cd pretrain_models/ernie
-# download pretrain model file to ./pretrain_models/
-MODEL_ERNIE=https://baidu-nlp.bj.bcebos.com/ERNIE_stable-1.0.1.tar.gz
-wget --no-check-certificate ${MODEL_ERNIE}
-
-tar -zxvf ERNIE_stable-1.0.1.tar.gz
-
-/bin/rm ERNIE_stable-1.0.1.tar.gz
+mkdir -p ms_log
+CUR_DIR=`pwd`
+DATA_PATH=${CUR_DIR}/data
+SAVE_PATH=${CUR_DIR}/save_models
+export GLOG_log_dir=${CUR_DIR}/ms_log
+export GLOG_logtostderr=0
+python ${CUR_DIR}/run_ernie_classifier.py  \
+    --device_target="Ascend" \
+    --do_train="false" \
+    --do_eval="true" \
+    --device_id=7 \
+    --num_class=2 \
+    --train_data_shuffle="true" \
+    --eval_data_shuffle="false" \
+    --eval_batch_size=32 \
+    --load_finetune_checkpoint_path="${SAVE_PATH}/classifier-10_400.ckpt" \
+    --eval_data_file_path="${DATA_PATH}/chnsenticorp/chnsenticorp_test.mindrecord" \
+    --schema_file_path="" > ${GLOG_log_dir}/eval_classifier_log.txt 2>&1 &

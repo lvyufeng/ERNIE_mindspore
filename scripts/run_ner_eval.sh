@@ -25,10 +25,10 @@ python ${CUR_DIR}/run_ernie_ner.py  \
     --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
     --do_train="false" \
     --do_eval="true" \
-    --device_id=4 \
+    --device_id=6 \
     --train_data_shuffle="true" \
     --eval_data_shuffle="false" \
     --eval_batch_size=32 \
-    --load_finetune_checkpoint_path="${SAVE_PATH}/ner-6_1304.ckpt" \
-    --eval_data_file_path="${DATA_PATH}/msra_ner_test.mindrecord" \
+    --load_finetune_checkpoint_path="${SAVE_PATH}/ner_2-6_1304.ckpt" \
+    --eval_data_file_path="${DATA_PATH}/msra_ner/msra_ner_test.mindrecord" \
     --schema_file_path="" > ${GLOG_log_dir}/eval_ner_log.txt 2>&1 &

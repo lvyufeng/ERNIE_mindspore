@@ -348,12 +348,16 @@ class SequenceLabelingReader(BaseReader):
         writer.commit()
 
 reader_dict = {
-    'classify': ClassifyReader,
-    'sequencelabeling': SequenceLabelingReader
+    'chnsenticorp': ClassifyReader,
+    'msra_ner': SequenceLabelingReader
+}
+have_label_map = {
+    'chnsenticorp': False,
+    'msra_ner': True
 }
 def main():
     parser = argparse.ArgumentParser(description="read dataset and save it to minddata")
-    parser.add_argument("--data_type", type=str, default="", help="data type to preprocess")
+    parser.add_argument("--task_type", type=str, default="", help="task type to preprocess")
     parser.add_argument("--vocab_path", type=str, default="", help="vocab file")
     parser.add_argument("--label_map_config", type=str, default=None, help="label mapping config file")
     parser.add_argument("--max_seq_len", type=int, default=128,
@@ -367,9 +371,9 @@ def main():
     parser.add_argument("--input_file", type=str, default="", help="raw data file")
     parser.add_argument("--output_file", type=str, default="", help="minddata file")
     args_opt = parser.parse_args()
-    reader = reader_dict[args_opt.data_type](
+    reader = reader_dict[args_opt.task_type](
         vocab_path=args_opt.vocab_path,
-        label_map_config=args_opt.label_map_config,
+        label_map_config=args_opt.label_map_config if have_label_map[args_opt.task_type] else None,
         max_seq_len=args_opt.max_seq_len,
         do_lower_case=args_opt.do_lower_case,
         random_seed=args_opt.random_seed

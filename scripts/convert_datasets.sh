@@ -13,69 +13,75 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+if [ $# -ne 3 ]
+then
+    echo "=============================================================================================================="
+    echo "Please run the script as: "
+    echo "sh convert_dataset.sh DATASET_PATH OUTPUT_PATH TASK_TYPE"
+    echo "for example: sh convert_dataset.sh /path/msra_ner/ /path/msra_ner/mindrecord/"
+    echo "TASK_TYPE including msra_ner, chnsenticorp"
+    echo "It is better to use absolute path."
+    echo "=============================================================================================================="
+exit 1
+fi
 
+ulimit -u unlimited
+get_real_path(){
+  if [ "${1:0:1}" == "/" ]; then
+    echo "$1"
+  else
+    echo "$(realpath -m $PWD/$1)"
+  fi
+}
+DATASET_PATH=$(get_real_path $1)
+echo $DATASET_PATH
+if [ ! -d $DATASET_PATH ]
+then
+    echo "error: DATASET_PATH=$DATASET_PATH is not valid"
+exit 1
+fi
+OUTPUT_PATH=$(get_real_path $2)
+echo $OUTPUT_PATH
+if [ ! -d $OUTPUT_PATH ]
+then
+    echo "error: OUTPUT_PATH=$OUTPUT_PATH is not valid"
+exit 1
+fi
+
+TASK_TYPE=$3
 CUR_DIR=`pwd`
-DATA_PATH=${CUR_DIR}/data
 MODEL_PATH=${CUR_DIR}/pretrain_models
 
 # ner task
 # train dataset
 python ${CUR_DIR}/src/reader.py  \
-    --data_type="sequencelabeling" \
-    --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
+    --task_type=$TASK_TYPE \
+    --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
     --max_seq_len=256 \
     --do_lower_case="true" \
     --random_seed=1 \
-    --input_file="${DATA_PATH}/msra_ner/train.tsv" \
-    --output_file="${DATA_PATH}/msra_ner_train.mindrecord"
+    --input_file="${DATASET_PATH}/train.tsv" \
+    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_train.mindrecord"
 
 # dev dataset
 python ${CUR_DIR}/src/reader.py  \
-    --data_type="sequencelabeling" \
-    --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
+    --task_type=$TASK_TYPE \
+    --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
     --max_seq_len=256 \
     --do_lower_case="true" \
     --random_seed=1 \
-    --input_file="${DATA_PATH}/msra_ner/dev.tsv" \
-    --output_file="${DATA_PATH}/msra_ner_dev.mindrecord"
+    --input_file="${DATASET_PATH}/dev.tsv" \
+    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_dev.mindrecord"
 
 # test dataset
 python ${CUR_DIR}/src/reader.py  \
-    --data_type="sequencelabeling" \
-    --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
+    --task_type=$TASK_TYPE \
+    --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
     --max_seq_len=256 \
     --do_lower_case="true" \
     --random_seed=1 \
-    --input_file="${DATA_PATH}/msra_ner/test.tsv" \
-    --output_file="${DATA_PATH}/msra_ner_test.mindrecord"
-
-# # classification task
-# # train dataset
-# python ${CUR_DIR}/src/reader.py  \
-#     --vocab_path="${MODEL_PATH}/vocab.txt" \
-#     --max_seq_len=512 \
-#     --do_lower_case="true" \
-#     --random_seed=1 \
-#     --input_file="${DATA_PATH}/train.tsv" \
-#     --output_file="${DATA_PATH}/train.mindrecord"
-
-# # dev dataset
-# python ${CUR_DIR}/src/reader.py  \
-#     --vocab_path="${MODEL_PATH}/vocab.txt" \
-#     --max_seq_len=512 \
-#     --do_lower_case="true" \
-#     --random_seed=1 \
-#     --input_file="${DATA_PATH}/dev.tsv" \
-#     --output_file="${DATA_PATH}/dev.mindrecord"
-
-# # train dataset
-# python ${CUR_DIR}/src/reader.py  \
-#     --vocab_path="${MODEL_PATH}/vocab.txt" \
-#     --max_seq_len=512 \
-#     --do_lower_case="true" \
-#     --random_seed=1 \
-#     --input_file="${DATA_PATH}/test.tsv" \
-#     --output_file="${DATA_PATH}/test.mindrecord"
+    --input_file="${DATASET_PATH}/test.tsv" \
+    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_test.mindrecord"

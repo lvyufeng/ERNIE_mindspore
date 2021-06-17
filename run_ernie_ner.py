@@ -154,14 +154,6 @@ def parse_args():
         raise ValueError("'train_data_file_path' must be set when do finetune task")
     if args_opt.do_eval.lower() == "true" and args_opt.eval_data_file_path == "":
         raise ValueError("'eval_data_file_path' must be set when do evaluation task")
-    # if args_opt.assessment_method.lower() == "clue_benchmark" and args_opt.vocab_file_path == "":
-    #     raise ValueError("'vocab_file_path' must be set to do clue benchmark")
-    # if args_opt.use_crf.lower() == "true" and args_opt.label_file_path == "":
-    #     raise ValueError("'label_file_path' must be set to use crf")
-    # if args_opt.assessment_method.lower() == "clue_benchmark" and args_opt.label_file_path == "":
-    #     raise ValueError("'label_file_path' must be set to do clue benchmark")
-    # if args_opt.assessment_method.lower() == "clue_benchmark":
-    #     args_opt.eval_batch_size = 1
     return args_opt
 
 
@@ -185,9 +177,6 @@ def run_ner():
             context.set_context(enable_graph_kernel=True)
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
-    # with open(args_opt.label_file_path) as f:
-    #     for label in f:
-    #         label_list.append(label.strip())
     with open(args_opt.label_map_config) as f:
         tag_to_index = json.load(f)
     number_labels = args_opt.number_labels
