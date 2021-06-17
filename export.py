@@ -20,8 +20,10 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, context, load_checkpoint, export
 
 from src.finetune_eval_config import ernie_net_cfg
-from src.finetune_eval_model import ErnieCLSModel
-parser = argparse.ArgumentParser(description="Emotect export")
+from src.finetune_eval_model import ErnieCLSModel, ErnieNERModel
+
+parser = argparse.ArgumentParser(description="ERNIE finetune export")
+parser.add_argument("--task_type", type=str, choices=["msra_ner", "chnsenticorp"], default="msra_ner", help="task type to export")
 parser.add_argument("--device_id", type=int, default=0, help="Device id")
 parser.add_argument("--batch_size", type=int, default=32, help="batch size")
 parser.add_argument("--number_labels", type=int, default=3, help="batch size")
@@ -38,7 +40,12 @@ if args.device_target == "Ascend":
     context.set_context(device_id=args.device_id)
 
 if __name__ == "__main__":
-    net = ErnieCLSModel(ernie_net_cfg, False, num_labels=args.number_labels)
+    if args.task_type == 'msra_ner':
+        net = ErnieNERModel(ernie_net_cfg, False, num_labels=args.number_labels)
+    elif args.task_type == 'chnsenticorp':
+        net = ErnieCLSModel(ernie_net_cfg, False, num_labels=args.number_labels)
+    else:
+        raise ValueError('unsupported task type')
 
     load_checkpoint(args.ckpt_file, net=net)
     net.set_train(False)
@@ -46,7 +53,6 @@ if __name__ == "__main__":
     input_ids = Tensor(np.zeros([args.batch_size, ernie_net_cfg.seq_length]), mstype.int32)
     input_mask = Tensor(np.zeros([args.batch_size, ernie_net_cfg.seq_length]), mstype.int32)
     token_type_id = Tensor(np.zeros([args.batch_size, ernie_net_cfg.seq_length]), mstype.int32)
-    label_ids = Tensor(np.zeros([args.batch_size, ernie_net_cfg.seq_length]), mstype.int32)
 
     input_data = [input_ids, input_mask, token_type_id]
     export(net, *input_data, file_name=args.file_name, file_format=args.file_format)
