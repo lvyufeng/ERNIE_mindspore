@@ -349,11 +349,15 @@ class SequenceLabelingReader(BaseReader):
 
 reader_dict = {
     'chnsenticorp': ClassifyReader,
-    'msra_ner': SequenceLabelingReader
+    'msra_ner': SequenceLabelingReader,
+    'xnli': ClassifyReader,
+    'dbqa': ClassifyReader
 }
 have_label_map = {
     'chnsenticorp': False,
-    'msra_ner': True
+    'msra_ner': True,
+    'xnli': True,
+    'dbqa': False
 }
 def main():
     parser = argparse.ArgumentParser(description="read dataset and save it to minddata")
