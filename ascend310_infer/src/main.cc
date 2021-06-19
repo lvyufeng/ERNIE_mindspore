@@ -28,8 +28,8 @@
 #include "include/api/context.h"
 #include "include/api/types.h"
 #include "include/api/serialization.h"
-#include "include/dataset/execute.h"
-#include "include/dataset/vision.h"
+#include "include/minddata/dataset/include/execute.h"
+#include "include/minddata/dataset/include/vision.h"
 #include "inc/utils.h"
 
 using mindspore::Context;
@@ -47,7 +47,6 @@ DEFINE_string(input0_path, ".", "input0 path");
 DEFINE_string(input1_path, ".", "input1 path");
 DEFINE_string(input2_path, ".", "input2 path");
 DEFINE_string(input3_path, ".", "input3 path");
-DEFINE_bool(use_crf, true, "use crf or not");
 DEFINE_int32(device_id, 0, "device id");
 
 int main(int argc, char **argv) {
@@ -62,10 +61,14 @@ int main(int argc, char **argv) {
   ascend310->SetDeviceID(FLAGS_device_id);
   context->MutableDeviceInfo().push_back(ascend310);
   mindspore::Graph graph;
-  Serialization::Load(FLAGS_mindir_path, ModelType::kMindIR, &graph);
+  Status ret = Serialization::Load(FLAGS_mindir_path, ModelType::kMindIR, &graph);
+  if (ret != kSuccess) {
+    std::cout << "ERROR: Load failed." << std::endl;
+    return 1;
+  }
 
   Model model;
-  Status ret = model.Build(GraphCell(graph), context);
+  ret = model.Build(GraphCell(graph), context);
   if (ret != kSuccess) {
     std::cout << "ERROR: Build failed." << std::endl;
     return 1;
@@ -108,11 +111,6 @@ int main(int argc, char **argv) {
                         input1.Data().get(), input1.DataSize());
     inputs.emplace_back(model_inputs[2].Name(), model_inputs[2].DataType(), model_inputs[2].Shape(),
                         input2.Data().get(), input2.DataSize());
-    if (FLAGS_use_crf) {
-      auto input3 = ReadFileToTensor(input3_files[i]);
-      inputs.emplace_back(model_inputs[3].Name(), model_inputs[3].DataType(), model_inputs[3].Shape(),
-                        input3.Data().get(), input3.DataSize());
-    }
 
     gettimeofday(&start, nullptr);
     ret = model.Predict(inputs, &outputs);
@@ -139,7 +137,7 @@ int main(int argc, char **argv) {
   std::stringstream timeCost;
   timeCost << "NN inference cost average time: "<< average << " ms of infer_count " << inferCount << std::endl;
   std::cout << "NN inference cost average time: "<< average << "ms of infer_count " << inferCount << std::endl;
-  std::string fileName = "./time_Result" + std::string("/test_perform_static.txt");
+  std::string fileName = "./time_result" + std::string("/test_perform_static.txt");
   std::ofstream fileStream(fileName.c_str(), std::ios::trunc);
   fileStream << timeCost.str();
   fileStream.close();

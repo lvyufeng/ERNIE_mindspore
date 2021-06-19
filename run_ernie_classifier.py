@@ -22,7 +22,7 @@ import time
 import argparse
 from src.ernie_for_finetune import ErnieFinetuneCell, ErnieCLS
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
-from src.dataset import create_classification_dataset
+from src.dataset import create_dataset
 from src.assessment_method import Accuracy
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 import mindspore.common.dtype as mstype
@@ -175,10 +175,11 @@ def run_classifier():
     netwithloss = ErnieCLS(ernie_net_cfg, True, num_labels=args_opt.num_class, dropout_prob=0.1)
 
     if args_opt.do_train.lower() == "true":
-        ds = create_classification_dataset(batch_size=args_opt.train_batch_size, repeat_count=1,
-                                           data_file_path=args_opt.train_data_file_path,
-                                           schema_file_path=args_opt.schema_file_path,
-                                           do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
+        ds = create_dataset(batch_size=args_opt.train_batch_size,
+                            repeat_count=1,
+                            data_file_path=args_opt.train_data_file_path,
+                            schema_file_path=args_opt.schema_file_path,
+                            do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
         do_train(ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
 
         if args_opt.do_eval.lower() == "true":
@@ -190,10 +191,11 @@ def run_classifier():
                                                            ds.get_dataset_size(), epoch_num, "classifier")
 
     if args_opt.do_eval.lower() == "true":
-        ds = create_classification_dataset(batch_size=args_opt.eval_batch_size, repeat_count=1,
-                                           data_file_path=args_opt.eval_data_file_path,
-                                           schema_file_path=args_opt.schema_file_path,
-                                           do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
+        ds = create_dataset(batch_size=args_opt.eval_batch_size,
+                            repeat_count=1,
+                            data_file_path=args_opt.eval_data_file_path,
+                            schema_file_path=args_opt.schema_file_path,
+                            do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
         do_eval(ds, ErnieCLS, args_opt.num_class, load_finetune_checkpoint_path)
 
     if args_opt.modelarts.lower() == 'true' and args_opt.do_train.lower() == "true":

@@ -18,7 +18,7 @@ then
     echo "=============================================================================================================="
     echo "Please run the script as: "
     echo "sh convert_dataset.sh DATASET_PATH OUTPUT_PATH TASK_TYPE"
-    echo "for example: sh convert_dataset.sh /path/msra_ner/ /path/msra_ner/mindrecord/"
+    echo "for example: sh convert_dataset.sh /path/msra_ner/ /path/msra_ner/mindrecord/ msra_ner"
     echo "TASK_TYPE including msra_ner, chnsenticorp"
     echo "It is better to use absolute path."
     echo "=============================================================================================================="
@@ -50,7 +50,7 @@ fi
 
 TASK_TYPE=$3
 CUR_DIR=`pwd`
-MODEL_PATH=${CUR_DIR}/pretrain_models
+MODEL_PATH=${CUR_DIR}/pretrain_models/ernie
 
 # ner task
 # train dataset

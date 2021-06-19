@@ -14,9 +14,8 @@
 # limitations under the License.
 # ============================================================================
 
-if [[ $# -lt 7 || $# -gt 8 ]]; then
-    echo "Usage: bash run_infer_310.sh [MINDIR_PATH] [LABEL_PATH] [DATA_FILE_PATH] [DATASET_FORMAT] [SCHEMA_PATH] [USE_CRF] [NEED_PREPROCESS] [DEVICE_ID]
-    USE_CRF is mandatory, and must choose from [true|false], it's case-insensitive
+if [[ $# -lt 4 || $# -gt 5 ]]; then
+    echo "Usage: bash run_infer_310.sh [MINDIR_PATH] [DATA_FILE_PATH] [NEED_PREPROCESS] [DEVICE_ID]
     NEED_PREPROCESS means weather need preprocess or not, it's value is 'y' or 'n'.
     DEVICE_ID is optional, it can be set by environment variable device_id, otherwise the value is zero"
 exit 1
@@ -30,37 +29,22 @@ get_real_path(){
     fi
 }
 model=$(get_real_path $1)
-label_file_path=$(get_real_path $2)
-eval_data_file_path=$(get_real_path $3)
-dataset_format=$4
-schema_file_path=$(get_real_path $5)
-net_type=${6,,}
-if [ $net_type == 'true' ]; then
-  echo "downstream: CRF"
-elif [ $net_type == 'false' ]; then
-  echo "downstream: NER"
-else
-  echo "[USE_CRF]:true or false"
-  exit 1
-fi
+eval_data_file_path=$(get_real_path $2)
 
-if [ "$7" == "y" ] || [ "$7" == "n" ];then
-    need_preprocess=$7
+if [ "$3" == "y" ] || [ "$3" == "n" ];then
+    need_preprocess=$3
 else
   echo "weather need preprocess or not, it's value must be in [y, n]"
   exit 1
 fi
 
 device_id=0
-if [ $# == 8 ]; then
-    device_id=$8
+if [ $# == 4 ]; then
+    device_id=$4
 fi
 
 echo "mindir name: "$model
-echo "label_file_path: "$label_file_path
 echo "eval_data_file_path: "$eval_data_file_path
-echo "dataset_format: "$dataset_format
-echo "schema_file_path: "$schema_file_path
 echo "need preprocess: "$need_preprocess
 echo "device id: "$device_id
 
@@ -80,11 +64,11 @@ fi
 
 function preprocess_data()
 {
-    if [ -d preprocess_Result ]; then
-        rm -rf ./preprocess_Result
+    if [ -d preprocess_result ]; then
+        rm -rf ./preprocess_result
     fi
-    mkdir preprocess_Result
-    python3.7 ../preprocess.py --use_crf=$net_type --do_eval=true --label_file_path=$label_file_path --eval_data_file_path=$eval_data_file_path --dataset_format=$dataset_format --schema_file_path=$schema_file_path --result_path=./preprocess_Result/
+    mkdir preprocess_result
+    python3.7 ../preprocess.py --eval_data_file_path=$eval_data_file_path  --result_path=./preprocess_result/
 }
 
 function compile_app()
@@ -96,16 +80,16 @@ function compile_app()
 function infer()
 {
     cd - || exit
-    if [ -d result_Files ]; then
-        rm -rf ./result_Files
+    if [ -d result_files ]; then
+        rm -rf ./result_files
     fi
-    if [ -d time_Result ]; then
-        rm -rf ./time_Result
+    if [ -d time_result ]; then
+        rm -rf ./time_result
     fi
-    mkdir result_Files
-    mkdir time_Result
+    mkdir result_files
+    mkdir time_result
 
-    ../ascend310_infer/out/main --mindir_path=$model --input0_path=./preprocess_Result/00_data --input1_path=./preprocess_Result/01_data --input2_path=./preprocess_Result/02_data --input3_path=./preprocess_Result/03_data --use_crf=$net_type --device_id=$device_id &> infer.log
+    ../ascend310_infer/out/main --mindir_path=$model --input0_path=./preprocess_result/00_data --input1_path=./preprocess_result/01_data --input2_path=./preprocess_result/02_data --input3_path=./preprocess_result/03_data --device_id=$device_id &> infer.log
 
 }
 

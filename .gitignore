@@ -139,3 +139,8 @@ pretrain_models/
 __pycache__
 somas_meta/
 task_error_dump/
+out/
+include/
+preprocess_result/
+result_files/
+time_result/

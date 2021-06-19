@@ -14,7 +14,7 @@
 # ============================================================================
 
 '''
-Bert finetune and evaluation script.
+ERNIE finetune and evaluation script.
 '''
 
 import os
@@ -23,7 +23,7 @@ import time
 import json
 from src.ernie_for_finetune import ErnieFinetuneCell, ErnieNER
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
-from src.dataset import create_ner_dataset
+from src.dataset import create_dataset
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 from src.assessment_method import SpanF1
 import mindspore.common.dtype as mstype
@@ -184,14 +184,15 @@ def run_ner():
         netwithloss = ErnieNER(ernie_net_cfg, args_opt.train_batch_size, True, num_labels=number_labels,
                               use_crf=(args_opt.use_crf.lower() == "true"),
                               tag_to_index=tag_to_index, dropout_prob=0.1)
-        ds = create_ner_dataset(batch_size=args_opt.train_batch_size, repeat_count=1,
-                                assessment_method=assessment_method, data_file_path=args_opt.train_data_file_path,
-                                schema_file_path=args_opt.schema_file_path, dataset_format=args_opt.dataset_format,
-                                do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
+        ds = create_dataset(batch_size=args_opt.train_batch_size,
+                            repeat_count=1,
+                            data_file_path=args_opt.train_data_file_path,
+                            schema_file_path=args_opt.schema_file_path,
+                            do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
         print("==============================================================")
         print("processor_name: {}".format(args_opt.device_target))
-        print("test_name: BERT Finetune Training")
-        print("model_name: {}".format("BERT+MLP+CRF" if args_opt.use_crf.lower() == "true" else "BERT + MLP"))
+        print("test_name: ERNIE Finetune Training")
+        print("model_name: {}".format("ERNIE+MLP+CRF" if args_opt.use_crf.lower() == "true" else "ERNIE + MLP"))
         print("batch_size: {}".format(args_opt.train_batch_size))
 
         do_train(ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
@@ -205,10 +206,11 @@ def run_ner():
                                                            ds.get_dataset_size(), epoch_num, "ner")
 
     if args_opt.do_eval.lower() == "true":
-        ds = create_ner_dataset(batch_size=args_opt.eval_batch_size, repeat_count=1,
-                                assessment_method=assessment_method, data_file_path=args_opt.eval_data_file_path,
-                                schema_file_path=args_opt.schema_file_path, dataset_format=args_opt.dataset_format,
-                                do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"), drop_remainder=False)
+        ds = create_dataset(batch_size=args_opt.eval_batch_size,
+                            repeat_count=1,
+                            data_file_path=args_opt.eval_data_file_path,
+                            schema_file_path=args_opt.schema_file_path,
+                            do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
         do_eval(ds, ErnieNER, args_opt.use_crf, number_labels, assessment_method,
                 args_opt.eval_data_file_path, load_finetune_checkpoint_path, args_opt.vocab_file_path,
                 args_opt.label_file_path, tag_to_index, args_opt.eval_batch_size)
