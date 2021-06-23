@@ -18,9 +18,8 @@ then
     echo "=============================================================================================================="
     echo "Please run the script as: "
     echo "sh run_standalone_finetune.sh TASK_TYPE"
-    echo "for example: sh convert_dataset.sh msra_ner"
+    echo "for example: sh run_standalone_finetune.sh msra_ner"
     echo "TASK_TYPE including [msra_ner, chnsenticorp]"
-    echo "It is better to use absolute path."
     echo "=============================================================================================================="
 exit 1
 fi
@@ -35,33 +34,43 @@ export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
 TASK_TYPE=$1
+DEVICE_ID=5
 case $TASK_TYPE in
   "msra_ner")
-    TRAIN_BATCH_SIZE=24
-    EVAL_BATCH_SIZE=32
-    EPOCH_NUM=6
-    NUM_CLASS=7
+    python ${CUR_DIR}/run_ernie_ner.py  \
+        --device_target="Ascend" \
+        --number_labels=7 \
+        --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
+        --do_train="true" \
+        --do_eval="true" \
+        --device_id=$DEVICE_ID \
+        --epoch_num=6 \
+        --train_data_shuffle="true" \
+        --eval_data_shuffle="false" \
+        --train_batch_size=16 \
+        --eval_batch_size=16 \
+        --save_finetune_checkpoint_path="${SAVE_PATH}" \
+        --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
+        --train_data_file_path="${DATA_PATH}/msra_ner/msra_ner_train.mindrecord" \
+        --eval_data_file_path="${DATA_PATH}/msra_ner/msra_ner_dev.mindrecord" \
+        --schema_file_path="" > ${GLOG_log_dir}/train_ner_log.txt 2>&1 &
     ;;
   "chnsenticorp")
-    TRAIN_BATCH_SIZE=16
-    EVAL_BATCH_SIZE=16
-    EPOCH_NUM=10
-    NUM_CLASS=2
+    python ${CUR_DIR}/run_ernie_classifier.py  \
+        --device_target="Ascend" \
+        --do_train="true" \
+        --do_eval="true" \
+        --device_id=$DEVICE_ID \
+        --epoch_num=10 \
+        --num_class=2 \
+        --train_data_shuffle="true" \
+        --eval_data_shuffle="false" \
+        --train_batch_size=24 \
+        --eval_batch_size=32 \
+        --save_finetune_checkpoint_path="${SAVE_PATH}" \
+        --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
+        --train_data_file_path="${DATA_PATH}/chnsenticorp/chnsenticorp_train.mindrecord" \
+        --eval_data_file_path="${DATA_PATH}/chnsenticorp/chnsenticorp_dev.mindrecord" \
+        --schema_file_path="" > ${GLOG_log_dir}/train_classifier_log.txt 2>&1 &
     ;;
   esac
-python ${CUR_DIR}/run_ernie_classifier.py  \
-    --device_target="Ascend" \
-    --do_train="true" \
-    --do_eval="true" \
-    --device_id=7 \
-    --epoch_num=$EPOCH_NUM \
-    --num_class=$NUM_CLASS \
-    --train_data_shuffle="true" \
-    --eval_data_shuffle="false" \
-    --train_batch_size=$TRAIN_BATCH_SIZE \
-    --eval_batch_size=$EVAL_BATCH_SIZE \
-    --save_finetune_checkpoint_path="${SAVE_PATH}" \
-    --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
-    --train_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_train.mindrecord" \
-    --eval_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_dev.mindrecord" \
-    --schema_file_path="" > ${GLOG_log_dir}/train_${TASK_TYPE}_log.txt 2>&1 &

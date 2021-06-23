@@ -23,7 +23,7 @@ import time
 import json
 from src.ernie_for_finetune import ErnieFinetuneCell, ErnieNER
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
-from src.dataset import create_dataset
+from src.dataset import create_finetune_dataset
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 from src.assessment_method import SpanF1
 import mindspore.common.dtype as mstype
@@ -184,7 +184,7 @@ def run_ner():
         netwithloss = ErnieNER(ernie_net_cfg, args_opt.train_batch_size, True, num_labels=number_labels,
                               use_crf=(args_opt.use_crf.lower() == "true"),
                               tag_to_index=tag_to_index, dropout_prob=0.1)
-        ds = create_dataset(batch_size=args_opt.train_batch_size,
+        ds = create_finetune_dataset(batch_size=args_opt.train_batch_size,
                             repeat_count=1,
                             data_file_path=args_opt.train_data_file_path,
                             schema_file_path=args_opt.schema_file_path,
@@ -206,7 +206,7 @@ def run_ner():
                                                            ds.get_dataset_size(), epoch_num, "ner")
 
     if args_opt.do_eval.lower() == "true":
-        ds = create_dataset(batch_size=args_opt.eval_batch_size,
+        ds = create_finetune_dataset(batch_size=args_opt.eval_batch_size,
                             repeat_count=1,
                             data_file_path=args_opt.eval_data_file_path,
                             schema_file_path=args_opt.schema_file_path,

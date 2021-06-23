@@ -15,11 +15,42 @@
 """
 Data operations, will be used in run_pretrain.py
 """
+import os
 import mindspore.common.dtype as mstype
 import mindspore.dataset as ds
 import mindspore.dataset.transforms.c_transforms as C
+from mindspore import log as logger
+from .config import cfg
 
-def create_dataset(batch_size=1,
+def create_ernie_dataset(device_num=1, rank=0, do_shuffle="true", data_dir=None, schema_dir=None):
+    """create train dataset"""
+    # apply repeat operations
+    files = os.listdir(data_dir)
+    data_files = []
+    for file_name in files:
+        if "tfrecord" in file_name:
+            data_files.append(os.path.join(data_dir, file_name))
+    data_set = ds.TFRecordDataset(data_files, schema_dir if schema_dir != "" else None,
+                                  columns_list=["input_ids", "input_mask", "segment_ids", "next_sentence_labels",
+                                                "masked_lm_positions", "masked_lm_ids", "masked_lm_weights"],
+                                  shuffle=ds.Shuffle.FILES if do_shuffle == "true" else False,
+                                  num_shards=device_num, shard_id=rank, shard_equal_rows=True)
+    ori_dataset_size = data_set.get_dataset_size()
+    print('origin dataset size: ', ori_dataset_size)
+    type_cast_op = C.TypeCast(mstype.int32)
+    data_set = data_set.map(operations=type_cast_op, input_columns="masked_lm_ids")
+    data_set = data_set.map(operations=type_cast_op, input_columns="masked_lm_positions")
+    data_set = data_set.map(operations=type_cast_op, input_columns="next_sentence_labels")
+    data_set = data_set.map(operations=type_cast_op, input_columns="segment_ids")
+    data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
+    data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
+    # apply batch operations
+    data_set = data_set.batch(cfg.batch_size, drop_remainder=True)
+    logger.info("data size: {}".format(data_set.get_dataset_size()))
+    logger.info("repeat count: {}".format(data_set.get_repeat_count()))
+    return data_set
+
+def create_finetune_dataset(batch_size=1,
                    repeat_count=1,
                    data_file_path=None,
                    schema_file_path=None,

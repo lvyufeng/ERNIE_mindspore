@@ -24,7 +24,7 @@ import numpy as np
 from collections import namedtuple
 from mindspore.mindrecord import FileWriter
 from mindspore.log import logging
-from tokenizer import FullTokenizer, convert_to_unicode
+from .tokenizer import FullTokenizer, convert_to_unicode
 
 def csv_reader(fd, delimiter='\t'):
     """

@@ -16,20 +16,33 @@
 
 echo "=============================================================================================================="
 echo "Please run the script as: "
-echo "bash run_distributed_pretrain_ascend.sh DATA_DIR RANK_TABLE_FILE"
-echo "for example: bash run_distributed_pretrain_ascend.sh /path/dataset /path/hccl.json"
-echo "It is better to use absolute path."
-echo "For hyper parameter, please note that you should customize the scripts:
-          '{CUR_DIR}/scripts/ascend_distributed_launcher/hyper_parameter_config.ini' "
+echo "bash run_standalone_pretrain_ascend.sh DEVICE_ID EPOCH_SIZE DATA_DIR SCHEMA_DIR"
+echo "for example: bash run_standalone_pretrain_ascend.sh 0 40 /path/zh-wiki/ /path/Schema.json"
 echo "=============================================================================================================="
-CUR_DIR=`pwd`
-ulimit -s 102400
-python ${CUR_DIR}/scripts/ascend_distributed_launcher/get_distribute_pretrain_cmd.py \
-    --run_script_dir=${CUR_DIR}/run_pretrain.py \
-    --hyper_parameter_config_dir=${CUR_DIR}/scripts/ascend_distributed_launcher/hyper_parameter_config.ini \
-    --data_dir=$1 \
-    --hccl_config_dir=$2 \
-    --hccl_time_out=600 \
-    --cmd_file=distributed_cmd.sh
 
-bash distributed_cmd.sh
+DEVICE_ID=$1
+EPOCH_SIZE=$2
+DATA_DIR=$3
+SCHEMA_DIR=$4
+ulimit -s 102400
+
+mkdir -p ms_log 
+PROJECT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+CUR_DIR=`pwd`
+export GLOG_log_dir=${CUR_DIR}/ms_log
+export GLOG_logtostderr=0
+python ${PROJECT_DIR}/../run_ernie_pretrain.py  \
+    --distribute="false" \
+    --epoch_size=$EPOCH_SIZE \
+    --device_id=$DEVICE_ID \
+    --enable_save_ckpt="true" \
+    --enable_lossscale="true" \
+    --do_shuffle="true" \
+    --enable_data_sink="true" \
+    --data_sink_steps=1 \
+    --accumulation_steps=1 \
+    --load_checkpoint_path="" \
+    --save_checkpoint_steps=10000 \
+    --save_checkpoint_num=1 \
+    --data_dir=$DATA_DIR \
+    --schema_dir=$SCHEMA_DIR > pretraining_log.txt 2>&1 &

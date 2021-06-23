@@ -22,7 +22,7 @@ import time
 import argparse
 from src.ernie_for_finetune import ErnieFinetuneCell, ErnieCLS
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
-from src.dataset import create_dataset
+from src.dataset import create_finetune_dataset
 from src.assessment_method import Accuracy
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 import mindspore.common.dtype as mstype
@@ -60,7 +60,7 @@ def do_train(dataset=None, network=None, load_checkpoint_path="", save_checkpoin
     elif optimizer_cfg.optimizer == 'Adagrad':
         optimizer = Adagrad(network.trainable_params(), learning_rate=optimizer_cfg.Adagrad.learning_rate)
     # load checkpoint into network
-    ckpt_config = CheckpointConfig(save_checkpoint_steps=steps_per_epoch, keep_checkpoint_max=10)
+    ckpt_config = CheckpointConfig(save_checkpoint_steps=steps_per_epoch, keep_checkpoint_max=1)
     ckpoint_cb = ModelCheckpoint(prefix="classifier",
                                  directory=None if save_checkpoint_path == "" else save_checkpoint_path,
                                  config=ckpt_config)
@@ -175,7 +175,7 @@ def run_classifier():
     netwithloss = ErnieCLS(ernie_net_cfg, True, num_labels=args_opt.num_class, dropout_prob=0.1)
 
     if args_opt.do_train.lower() == "true":
-        ds = create_dataset(batch_size=args_opt.train_batch_size,
+        ds = create_finetune_dataset(batch_size=args_opt.train_batch_size,
                             repeat_count=1,
                             data_file_path=args_opt.train_data_file_path,
                             schema_file_path=args_opt.schema_file_path,
@@ -191,7 +191,7 @@ def run_classifier():
                                                            ds.get_dataset_size(), epoch_num, "classifier")
 
     if args_opt.do_eval.lower() == "true":
-        ds = create_dataset(batch_size=args_opt.eval_batch_size,
+        ds = create_finetune_dataset(batch_size=args_opt.eval_batch_size,
                             repeat_count=1,
                             data_file_path=args_opt.eval_data_file_path,
                             schema_file_path=args_opt.schema_file_path,
