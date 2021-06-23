@@ -61,7 +61,7 @@ CUR_DIR=`pwd`
 python ${CUR_DIR}/export.py \
         --task_type=${TASK_TYPE} \
         --device_id=0 \
-        --batch_size=32 \
+        --batch_size=1 \
         --number_labels=${NUMBER_LABELS} \
         --ckpt_file="${CKPT_FILE}" \
         --file_name="${EXPORT_PATH}/${TASK_TYPE}.mindir" \

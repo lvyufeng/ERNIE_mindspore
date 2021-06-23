@@ -144,3 +144,5 @@ include/
 preprocess_result/
 result_files/
 time_result/
+
+*.zip

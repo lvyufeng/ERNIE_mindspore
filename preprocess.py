@@ -19,7 +19,7 @@ Ernie preprocess script.
 
 import os
 import argparse
-from src.dataset import create_dataset
+from src.dataset import create_finetune_dataset
 
 def parse_args():
     """set and check parameters."""
@@ -40,10 +40,10 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    ds = create_dataset(batch_size=args.eval_batch_size,
-                        repeat_count=1,
-                        data_file_path=args.eval_data_file_path,
-                        do_shuffle=(args.eval_data_shuffle.lower() == "true"))
+    ds = create_finetune_dataset(batch_size=args.eval_batch_size,
+                                 repeat_count=1,
+                                 data_file_path=args.eval_data_file_path,
+                                 do_shuffle=(args.eval_data_shuffle.lower() == "true"))
     ids_path = os.path.join(args.result_path, "00_data")
     mask_path = os.path.join(args.result_path, "01_data")
     token_path = os.path.join(args.result_path, "02_data")
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         token_type_id = data["token_type_id"]
         label_ids = data["label_ids"]
 
-        file_name = "cluener_bs" + str(args.eval_batch_size) + "_" + str(idx) + ".bin"
+        file_name = "msra_ner_batch_" + str(args.eval_batch_size) + "_" + str(idx) + ".bin"
         ids_file_path = os.path.join(ids_path, file_name)
         input_ids.tofile(ids_file_path)
 

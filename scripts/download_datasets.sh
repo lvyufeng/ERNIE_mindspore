@@ -15,7 +15,7 @@
 # ============================================================================
 
 # download dataset file to ./data/
-DATA_URL=https://ernie.bj.bcebos.com/task_data_zh.tgz
+DATA_URL=https://ernie.bj.bcebos.com/task_data_zh.tg
 wget --no-check-certificate ${DATA_URL}
 
 tar xvf task_data_zh.tgz

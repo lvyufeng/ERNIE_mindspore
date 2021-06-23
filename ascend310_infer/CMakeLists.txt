@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14.1)
 project(Ascend310Infer)
-# add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
+add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -std=c++17 -Werror -Wall -fPIE -Wl,--allow-shlib-undefined")
 set(PROJECT_SRC_ROOT ${CMAKE_CURRENT_LIST_DIR}/)
 option(MINDSPORE_PATH "mindspore install path" "")

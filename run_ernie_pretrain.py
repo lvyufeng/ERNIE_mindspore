@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """
-#################pre_train bert example on zh-wiki########################
+#################pre_train ernie example on zh-wiki########################
 python run_pretrain.py
 """
 
@@ -40,18 +40,18 @@ from src.ernie_for_pretraining import \
                 
 from src.adam import AdamWeightDecayForErnie, AdamWeightDecayOp
 from src.dataset import create_ernie_dataset
-from src.config import cfg, bert_net_cfg
+from src.config import cfg, ernie_net_cfg
 from src.utils import LossCallBack, ErnieLearningRate
 _current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
-def _set_bert_all_reduce_split():
-    """set bert all_reduce fusion split, support num_hidden_layers is 12 and 24."""
+def _set_ernie_all_reduce_split():
+    """set ernie all_reduce fusion split, support num_hidden_layers is 12 and 24."""
     device_target = context.get_context('device_target')
     enable_graph_kernel = context.get_context('enable_graph_kernel')
     device_num = context.get_auto_parallel_context('device_num')
-    if bert_net_cfg.num_hidden_layers == 12:
-        if bert_net_cfg.use_relative_positions:
+    if ernie_net_cfg.num_hidden_layers == 12:
+        if ernie_net_cfg.use_relative_positions:
             context.set_auto_parallel_context(all_reduce_fusion_config=[29, 58, 87, 116, 145, 174, 203, 217])
         else:
             context.set_auto_parallel_context(all_reduce_fusion_config=[28, 55, 82, 109, 136, 163, 190, 205])
@@ -59,15 +59,15 @@ def _set_bert_all_reduce_split():
                 context.set_auto_parallel_context(all_reduce_fusion_config=[180, 205])
             elif device_target == 'GPU' and enable_graph_kernel and device_num == 16:
                 context.set_auto_parallel_context(all_reduce_fusion_config=[120, 205])
-    elif bert_net_cfg.num_hidden_layers == 24:
-        if bert_net_cfg.use_relative_positions:
+    elif ernie_net_cfg.num_hidden_layers == 24:
+        if ernie_net_cfg.use_relative_positions:
             context.set_auto_parallel_context(all_reduce_fusion_config=[30, 90, 150, 210, 270, 330, 390, 421])
         else:
             context.set_auto_parallel_context(all_reduce_fusion_config=[38, 93, 148, 203, 258, 313, 368, 397])
 
 
 def _get_optimizer(args_opt, network):
-    """get bert optimizer, support Lamb, Momentum, AdamWeightDecay."""
+    """get ernie optimizer, support Lamb, Momentum, AdamWeightDecay."""
     if cfg.optimizer == 'Lamb':
         lr_schedule = ErnieLearningRate(learning_rate=cfg.Lamb.learning_rate,
                                        end_learning_rate=cfg.Lamb.end_learning_rate,
@@ -111,13 +111,13 @@ def _get_optimizer(args_opt, network):
 def _auto_enable_graph_kernel(device_target, graph_kernel_mode):
     """Judge whether is suitable to enable graph kernel."""
     return graph_kernel_mode in ("auto", "true") and device_target == 'GPU' and \
-        cfg.bert_network in ('base', 'large') and cfg.optimizer == 'AdamWeightDecay'
+        cfg.ernie_network in ('base', 'large') and cfg.optimizer == 'AdamWeightDecay'
 
 
 def _set_graph_kernel_context(device_target, enable_graph_kernel, is_auto_enable_graph_kernel):
     if enable_graph_kernel == "true" or is_auto_enable_graph_kernel:
         if device_target == 'GPU':
-            if cfg.bert_network == 'base':
+            if cfg.ernie_network == 'base':
                 context.set_context(enable_graph_kernel=True,
                                     graph_kernel_flags="--enable_stitch_fusion=true --enable_parallel_fusion=true")
             else:
@@ -127,10 +127,10 @@ def _set_graph_kernel_context(device_target, enable_graph_kernel, is_auto_enable
 
 
 def _check_compute_type(args_opt, is_auto_enable_graph_kernel):
-    if args_opt.device_target == 'GPU' and bert_net_cfg.compute_type != mstype.float32 and \
-       not is_auto_enable_graph_kernel and cfg.bert_network != 'base':
+    if args_opt.device_target == 'GPU' and ernie_net_cfg.compute_type != mstype.float32 and \
+       not is_auto_enable_graph_kernel and cfg.ernie_network != 'base':
         warning_message = 'Gpu only support fp32 temporarily, run with fp32.'
-        bert_net_cfg.compute_type = mstype.float32
+        ernie_net_cfg.compute_type = mstype.float32
         if args_opt.enable_lossscale == "true":
             args_opt.enable_lossscale = "false"
             warning_message = 'Gpu only support fp32 temporarily, run with fp32 and disable lossscale.'
@@ -139,7 +139,7 @@ def _check_compute_type(args_opt, is_auto_enable_graph_kernel):
 
 def argparse_init():
     """Argparse init."""
-    parser = argparse.ArgumentParser(description='bert pre_training')
+    parser = argparse.ArgumentParser(description='ernie pre_training')
     parser.add_argument('--device_target', type=str, default='Ascend', choices=['Ascend', 'GPU'],
                         help='device where the code will be implemented. (Default: Ascend)')
     parser.add_argument("--distribute", type=str, default="false", choices=["true", "false"],
@@ -175,7 +175,7 @@ def argparse_init():
 
 
 def run_pretrain():
-    """pre-train bert_clue"""
+    """pre-train ernie"""
     parser = argparse_init()
     args_opt = parser.parse_args()
     context.set_context(mode=context.GRAPH_MODE, device_target=args_opt.device_target, device_id=args_opt.device_id)
@@ -197,7 +197,7 @@ def run_pretrain():
         context.reset_auto_parallel_context()
         context.set_auto_parallel_context(parallel_mode=ParallelMode.DATA_PARALLEL, gradients_mean=True,
                                           device_num=device_num)
-        _set_bert_all_reduce_split()
+        _set_ernie_all_reduce_split()
     else:
         rank = 0
         device_num = 1
@@ -215,7 +215,7 @@ def run_pretrain():
             logger.info("save checkpoint steps: {}".format(args_opt.save_checkpoint_steps))
 
     ds = create_ernie_dataset(device_num, rank, args_opt.do_shuffle, args_opt.data_dir, args_opt.schema_dir)
-    net_with_loss = ErnieNetworkWithLoss(bert_net_cfg, True)
+    net_with_loss = ErnieNetworkWithLoss(ernie_net_cfg, True)
 
     new_repeat_count = args_opt.epoch_size * ds.get_dataset_size() // args_opt.data_sink_steps
     if args_opt.train_steps > 0:
@@ -230,7 +230,7 @@ def run_pretrain():
     if args_opt.enable_save_ckpt == "true" and args_opt.device_id % min(8, device_num) == 0:
         config_ck = CheckpointConfig(save_checkpoint_steps=args_opt.save_checkpoint_steps,
                                      keep_checkpoint_max=args_opt.save_checkpoint_num)
-        ckpoint_cb = ModelCheckpoint(prefix='checkpoint_bert',
+        ckpoint_cb = ModelCheckpoint(prefix='checkpoint_ernie',
                                      directory=None if ckpt_save_dir == "" else ckpt_save_dir, config=config_ck)
         callback.append(ckpoint_cb)
 
