@@ -1,3 +1,8 @@
+import collections
+import gzip
+import six
+import numpy as np
+
 class ErnieDataReader(object):
     def __init__(self,
                  filelist,
@@ -43,15 +48,6 @@ class ErnieDataReader(object):
         
         self.global_rng = np.random.RandomState(random_seed)
         if self.shuffle_files:
-            if os.getenv("PADDLE_TRAINER_ID"):
-                self.trainer_id = int(os.getenv("PADDLE_TRAINER_ID"))
-            if os.getenv("PADDLE_NODES_NUM"):
-                self.trainer_nums = int(os.getenv("PADDLE_TRAINERS_NUM"))
-            #renew total_file
-            self.total_file = len(self.files) // self.trainer_nums * self.trainer_nums
-            if len(self.files) < self.trainer_nums:
-                raise RuntimeError('not enouph train file to shard, file:%d num_trainer:%d' % (len(self.files), self.trainer_nums))
-
             tmp_files = []
             for each in range(epoch):
                 each_files = self.files 
@@ -60,9 +56,6 @@ class ErnieDataReader(object):
             self.files = tmp_files
             #renew epochs
             self.epoch = len(self.files) // self.total_file * self.total_file
-        
-        assert self.total_file > 0, \
-            "[Error] data_dir is empty or less than %d" % self.trainer_nums
 
         if self.in_tokens:
             assert self.batch_size > 100, "Current batch size means total token's number, \
