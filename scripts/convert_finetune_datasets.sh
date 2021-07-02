@@ -80,7 +80,7 @@ python ${CUR_DIR}/src/task_reader.py  \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_train.mindrecord"
 
 # dev dataset
-python ${CUR_DIR}/src/reader.py  \
+python ${CUR_DIR}/src/task_reader.py  \
     --task_type=$TASK_TYPE \
     --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
@@ -91,7 +91,7 @@ python ${CUR_DIR}/src/reader.py  \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_dev.mindrecord"
 
 # test dataset
-python ${CUR_DIR}/src/reader.py  \
+python ${CUR_DIR}/src/task_reader.py  \
     --task_type=$TASK_TYPE \
     --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \

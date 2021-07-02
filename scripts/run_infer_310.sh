@@ -68,7 +68,7 @@ function preprocess_data()
         rm -rf ./preprocess_result
     fi
     mkdir preprocess_result
-    python3.7 ../preprocess.py --eval_data_file_path=$eval_data_file_path  --result_path=./preprocess_result/
+    python3.7 preprocess.py --eval_data_file_path=$eval_data_file_path  --result_path=./preprocess_result/
 }
 
 function compile_app()
@@ -89,13 +89,13 @@ function infer()
     mkdir result_files
     mkdir time_result
 
-    ../ascend310_infer/out/main --mindir_path=$model --input0_path=./preprocess_result/00_data --input1_path=./preprocess_result/01_data --input2_path=./preprocess_result/02_data --input3_path=./preprocess_result/03_data --device_id=$device_id &> infer.log
+    ./ascend310_infer/out/main --mindir_path=$model --input0_path=./preprocess_result/00_data --input1_path=./preprocess_result/01_data --input2_path=./preprocess_result/02_data --input3_path=./preprocess_result/03_data --device_id=$device_id &> infer.log
 
 }
 
 function cal_acc()
 {
-    python3.7 ../postprocess.py --result_path=./result_Files --label_dir=./preprocess_Result/03_data --use_crf=$net_type &> acc.log
+    python3.7 postprocess.py --result_dir=./result_files --label_dir=./preprocess_result/03_data &> acc.log
 }
 
 if [ $need_preprocess == "y" ]; then

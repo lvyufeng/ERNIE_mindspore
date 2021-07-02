@@ -21,8 +21,8 @@ import os
 import argparse
 import numpy as np
 from mindspore import Tensor
-from src.finetune_eval_config import bert_net_cfg
-from src.assessment_method import Accuracy, F1, MCC, Spearman_Correlation
+from src.finetune_eval_config import ernie_net_cfg
+from src.assessment_method import Accuracy, F1
 from run_ner import eval_result_print
 
 parser = argparse.ArgumentParser(description="postprocess")

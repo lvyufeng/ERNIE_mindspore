@@ -60,6 +60,8 @@ int main(int argc, char **argv) {
   auto ascend310 = std::make_shared<mindspore::Ascend310DeviceInfo>();
   ascend310->SetDeviceID(FLAGS_device_id);
   context->MutableDeviceInfo().push_back(ascend310);
+  ascend310->SetPrecisionMode("allow_fp32_to_fp16");
+  ascend310->SetOpSelectImplMode("high_precision");
   mindspore::Graph graph;
   Status ret = Serialization::Load(FLAGS_mindir_path, ModelType::kMindIR, &graph);
   if (ret != kSuccess) {
