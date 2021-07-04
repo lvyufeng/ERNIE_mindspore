@@ -54,7 +54,8 @@ case $TASK_TYPE in
     ;;
   esac
 
-python ${CUR_DIR}/${PY_NAME}.py  \
+python ${CUR_DIR}/${PY_NAME}.py \
+    --task_type=$TASK_TYPE \
     --device_target="Ascend" \
     --number_labels=${NUM_LABELS} \
     --label_map_config=${LABEL_MAP} \
@@ -69,5 +70,4 @@ python ${CUR_DIR}/${PY_NAME}.py  \
     --save_finetune_checkpoint_path="${SAVE_PATH}" \
     --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
     --train_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_train.mindrecord" \
-    --eval_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_dev.mindrecord" \
-    --schema_file_path="" > ${GLOG_log_dir}/train_${TASK_TYPE}_log.txt 2>&1 &
+    --eval_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_dev.mindrecord" > ${GLOG_log_dir}/train_${TASK_TYPE}_log.txt 2>&1 &

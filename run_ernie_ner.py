@@ -38,7 +38,7 @@ from mindspore.train.serialization import load_checkpoint, load_param_into_net
 _cur_dir = os.getcwd()
 
 
-def do_train(dataset=None, network=None, load_checkpoint_path="", save_checkpoint_path="", epoch_num=1):
+def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", save_checkpoint_path="", epoch_num=1):
     """ do train """
     if load_checkpoint_path == "":
         raise ValueError("Pretrain model missed, finetune task must load pretrain model!")
@@ -65,7 +65,7 @@ def do_train(dataset=None, network=None, load_checkpoint_path="", save_checkpoin
 
     # load checkpoint into network
     ckpt_config = CheckpointConfig(save_checkpoint_steps=steps_per_epoch, keep_checkpoint_max=1)
-    ckpoint_cb = ModelCheckpoint(prefix="ner",
+    ckpoint_cb = ModelCheckpoint(prefix=task_type,
                                  directory=None if save_checkpoint_path == "" else save_checkpoint_path,
                                  config=ckpt_config)
     param_dict = load_checkpoint(load_checkpoint_path)
@@ -116,6 +116,8 @@ def do_eval(dataset=None, network=None, use_crf="", num_class=41, assessment_met
 def parse_args():
     """set and check parameters."""
     parser = argparse.ArgumentParser(description="run ner")
+    parser.add_argument("--task_type", type=str, default="msra_ner", choices=["msra_ner"],
+                        help="Task type, default is msra_ner")
     parser.add_argument("--device_target", type=str, default="Ascend", choices=["Ascend", "GPU"],
                         help="Device type, default is Ascend")
     parser.add_argument("--do_train", type=str, default="false", choices=["true", "false"],
@@ -187,7 +189,6 @@ def run_ner():
         ds = create_finetune_dataset(batch_size=args_opt.train_batch_size,
                             repeat_count=1,
                             data_file_path=args_opt.train_data_file_path,
-                            schema_file_path=args_opt.schema_file_path,
                             do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
         print("==============================================================")
         print("processor_name: {}".format(args_opt.device_target))
@@ -195,7 +196,7 @@ def run_ner():
         print("model_name: {}".format("ERNIE+MLP+CRF" if args_opt.use_crf.lower() == "true" else "ERNIE + MLP"))
         print("batch_size: {}".format(args_opt.train_batch_size))
 
-        do_train(ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
+        do_train(args_opt.task_type, ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
 
         if args_opt.do_eval.lower() == "true":
             if save_finetune_checkpoint_path == "":
@@ -203,13 +204,12 @@ def run_ner():
             else:
                 load_finetune_checkpoint_dir = make_directory(save_finetune_checkpoint_path)
             load_finetune_checkpoint_path = LoadNewestCkpt(load_finetune_checkpoint_dir,
-                                                           ds.get_dataset_size(), epoch_num, "ner")
+                                                           ds.get_dataset_size(), epoch_num, args_opt.task_type)
 
     if args_opt.do_eval.lower() == "true":
         ds = create_finetune_dataset(batch_size=args_opt.eval_batch_size,
                             repeat_count=1,
                             data_file_path=args_opt.eval_data_file_path,
-                            schema_file_path=args_opt.schema_file_path,
                             do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
         do_eval(ds, ErnieNER, args_opt.use_crf, number_labels, assessment_method,
                 args_opt.eval_data_file_path, load_finetune_checkpoint_path, args_opt.vocab_file_path,

@@ -154,6 +154,9 @@ def run_classifier():
     if args_opt.task_type == 'chnsenticorp':
         ernie_net_cfg.seq_length = 256
         optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
+    elif args_opt.task_type == 'msra_ner':
+        ernie_net_cfg.seq_length = 256
+        optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
     elif args_opt.task_type == 'xnli':
         ernie_net_cfg.seq_length = 512
         optimizer_cfg.AdamWeightDecay.learning_rate = 1e-4
@@ -213,7 +216,7 @@ def run_classifier():
                                      rank_size=args_opt.device_num,
                                      rank_id=rank,
                                      do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
-        do_train(args_opt.task_type, ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
+        do_train(args_opt.task_type + '-' + rank, ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
 
         if args_opt.do_eval.lower() == "true":
             if save_finetune_checkpoint_path == "":
@@ -221,7 +224,7 @@ def run_classifier():
             else:
                 load_finetune_checkpoint_dir = make_directory(save_finetune_checkpoint_path)
             load_finetune_checkpoint_path = LoadNewestCkpt(load_finetune_checkpoint_dir,
-                                                           ds.get_dataset_size(), epoch_num, "classifier")
+                                                           ds.get_dataset_size(), epoch_num, args_opt.task_type)
 
     if args_opt.do_eval.lower() == "true":
         ds = create_finetune_dataset(batch_size=args_opt.eval_batch_size,

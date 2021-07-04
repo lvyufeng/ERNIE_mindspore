@@ -47,12 +47,18 @@ for((i=0; i<$DEVICE_NUM; i++))
 do
     export DEVICE_ID=`expr $i + $START_DEVICE_NUM`
     export RANK_ID=$i
+    if [ $i -eq 0 ]
+    then
+        DO_EVAL="true"
+    else
+        DO_EVAL="false"
+    fi
     python ${CUR_DIR}/run_ernie_classifier.py \
         --task_type="xnli" \
         --device_target="Ascend" \
         --run_distribute="true" \
         --do_train="true" \
-        --do_eval="true" \
+        --do_eval=$DO_EVAL \
         --device_num=$DEVICE_NUM \
         --device_id=$DEVICE_ID \
         --rank_id=$i \

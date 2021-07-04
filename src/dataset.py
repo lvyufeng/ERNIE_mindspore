@@ -58,7 +58,7 @@ def create_finetune_dataset(batch_size=1,
                             do_shuffle=True):
     """create finetune or evaluation dataset"""
     type_cast_op = C.TypeCast(mstype.int32)
-    data_set = ds.MindDataset([data_file_path],
+    data_set = ds.MindDataset(data_file_path,
                               columns_list=["input_ids", "input_mask", "token_type_id", "label_ids"],
                               shuffle=do_shuffle,
                               num_shards=rank_size,
