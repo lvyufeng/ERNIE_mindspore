@@ -52,15 +52,19 @@ TASK_TYPE=$3
 case $TASK_TYPE in
   "msra_ner")
     MAX_SEQ_LEN=256
+    SHARD_NUM=1
     ;;
   "chnsenticorp")
     MAX_SEQ_LEN=256
+    SHARD_NUM=1
     ;;
   "xnli")
     MAX_SEQ_LEN=512
+    SHARD_NUM=10
     ;;
   "dbqa")
     MAX_SEQ_LEN=512
+    SHARD_NUM=10
     ;;
   esac
 
@@ -77,7 +81,8 @@ python ${CUR_DIR}/src/task_reader.py  \
     --do_lower_case="true" \
     --random_seed=1 \
     --input_file="${DATASET_PATH}/train.tsv" \
-    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_train.mindrecord"
+    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_train.mindrecord" \
+    --shard_num=$SHARD_NUM
 
 # dev dataset
 python ${CUR_DIR}/src/task_reader.py  \
@@ -88,7 +93,8 @@ python ${CUR_DIR}/src/task_reader.py  \
     --do_lower_case="true" \
     --random_seed=1 \
     --input_file="${DATASET_PATH}/dev.tsv" \
-    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_dev.mindrecord"
+    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_dev.mindrecord" \
+    --shard_num=1
 
 # test dataset
 python ${CUR_DIR}/src/task_reader.py  \
@@ -99,5 +105,6 @@ python ${CUR_DIR}/src/task_reader.py  \
     --do_lower_case="true" \
     --random_seed=1 \
     --input_file="${DATASET_PATH}/test.tsv" \
-    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_test.mindrecord"
+    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_test.mindrecord" \
+    --shard_num=1
     

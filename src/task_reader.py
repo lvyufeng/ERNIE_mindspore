@@ -230,11 +230,11 @@ class ClassifyReader(BaseReader):
                 examples.append(example)
             return examples
 
-    def file_based_convert_examples_to_features(self, input_file, output_file):
+    def file_based_convert_examples_to_features(self, input_file, output_file, shard_num):
         """"Convert a set of `InputExample`s to a MindDataset file."""
         examples = self._read_tsv(input_file)
 
-        writer = FileWriter(file_name=output_file, shard_num=1)
+        writer = FileWriter(file_name=output_file, shard_num=shard_num)
         nlp_schema = {
             "input_ids": {"type": "int64", "shape": [-1]},
             "input_mask": {"type": "int64", "shape": [-1]},
@@ -320,11 +320,11 @@ class SequenceLabelingReader(BaseReader):
         assert len(ret_tokens) == len(ret_labels)
         return ret_tokens, ret_labels
 
-    def file_based_convert_examples_to_features(self, input_file, output_file):
+    def file_based_convert_examples_to_features(self, input_file, output_file, shard_num):
         """"Convert a set of `InputExample`s to a MindDataset file."""
         examples = self._read_tsv(input_file)
 
-        writer = FileWriter(file_name=output_file, shard_num=1)
+        writer = FileWriter(file_name=output_file, shard_num=shard_num)
         nlp_schema = {
             "input_ids": {"type": "int64", "shape": [-1]},
             "input_mask": {"type": "int64", "shape": [-1]},
@@ -374,6 +374,7 @@ def main():
     parser.add_argument("--random_seed", type=int, default=0, help="random seed number")
     parser.add_argument("--input_file", type=str, default="", help="raw data file")
     parser.add_argument("--output_file", type=str, default="", help="minddata file")
+    parser.add_argument("--shard_num", type=int, default=0, help="output file shard number")
     args_opt = parser.parse_args()
     reader = reader_dict[args_opt.task_type](
         vocab_path=args_opt.vocab_path,
@@ -382,7 +383,9 @@ def main():
         do_lower_case=args_opt.do_lower_case,
         random_seed=args_opt.random_seed
     )
-    reader.file_based_convert_examples_to_features(input_file=args_opt.input_file, output_file=args_opt.output_file)
+    reader.file_based_convert_examples_to_features(input_file=args_opt.input_file,
+                                                   output_file=args_opt.output_file,
+                                                   shard_num=args_opt.shard_num)
 
 if __name__ == "__main__":
     main()

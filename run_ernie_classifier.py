@@ -33,10 +33,12 @@ from mindspore.nn.optim import Adam, AdamWeightDecay, Adagrad
 from mindspore.train.model import Model
 from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMonitor
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
+from mindspore.context import ParallelMode
+from mindspore.communication.management import init
 
 _cur_dir = os.getcwd()
 
-def do_train(dataset=None, network=None, load_checkpoint_path="", save_checkpoint_path="", epoch_num=1):
+def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", save_checkpoint_path="", epoch_num=1):
     """ do train """
     if load_checkpoint_path == "":
         raise ValueError("Pretrain model missed, finetune task must load pretrain model!")
@@ -61,7 +63,7 @@ def do_train(dataset=None, network=None, load_checkpoint_path="", save_checkpoin
         optimizer = Adagrad(network.trainable_params(), learning_rate=optimizer_cfg.Adagrad.learning_rate)
     # load checkpoint into network
     ckpt_config = CheckpointConfig(save_checkpoint_steps=steps_per_epoch, keep_checkpoint_max=1)
-    ckpoint_cb = ModelCheckpoint(prefix="classifier",
+    ckpoint_cb = ModelCheckpoint(prefix=task_type,
                                  directory=None if save_checkpoint_path == "" else save_checkpoint_path,
                                  config=ckpt_config)
     param_dict = load_checkpoint(load_checkpoint_path)
@@ -76,11 +78,11 @@ def do_train(dataset=None, network=None, load_checkpoint_path="", save_checkpoin
     callbacks = [TimeMonitor(dataset.get_dataset_size()), LossCallBack(dataset.get_dataset_size()), ckpoint_cb]
     model.train(epoch_num, dataset, callbacks=callbacks)
 
-def do_eval(dataset=None, network=None, num_class=2, load_checkpoint_path=""):
+def do_eval(dataset=None, network=None, num_labels=2, load_checkpoint_path=""):
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
-    net_for_pretraining = network(ernie_net_cfg, False, num_class)
+    net_for_pretraining = network(ernie_net_cfg, False, num_labels)
     net_for_pretraining.set_train(False)
     param_dict = load_checkpoint(load_checkpoint_path)
     load_param_into_net(net_for_pretraining, param_dict)
@@ -109,15 +111,21 @@ def do_eval(dataset=None, network=None, num_class=2, load_checkpoint_path=""):
 def run_classifier():
     """run classifier task"""
     parser = argparse.ArgumentParser(description="run classifier")
+    parser.add_argument("--task_type", type=str, default="chnsenticorp", choices=["chnsenticorp", "xnli", "dbqa"],
+                        help="Task type, default is chnsenticorp")
     parser.add_argument("--device_target", type=str, default="Ascend", choices=["Ascend", "GPU"],
                         help="Device type, default is Ascend")
+    parser.add_argument("--run_distribute", type=str, default=False, help="Run distribute, default: false.")
     parser.add_argument("--do_train", type=str, default="false", choices=["true", "false"],
                         help="Enable train, default is false")
     parser.add_argument("--do_eval", type=str, default="false", choices=["true", "false"],
                         help="Enable eval, default is false")
+    parser.add_argument("--device_num", type=int, default=1, help="Use device nums, default: 1.")
     parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
+    parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default: 0.")
     parser.add_argument("--epoch_num", type=int, default=3, help="Epoch number, default is 3.")
-    parser.add_argument("--num_class", type=int, default=3, help="The number of class, default is 3.")
+    parser.add_argument("--num_labels", type=int, default=3, help="The number of class, default is 3.")
+    parser.add_argument("--label_map_config", type=str, default="", help="Label map file path")
     parser.add_argument("--train_data_shuffle", type=str, default="true", choices=["true", "false"],
                         help="Enable train data shuffle, default is true")
     parser.add_argument("--eval_data_shuffle", type=str, default="false", choices=["true", "false"],
@@ -133,8 +141,6 @@ def run_classifier():
                         help="Data path, it is better to use absolute path")
     parser.add_argument("--eval_data_file_path", type=str, default="",
                         help="Data path, it is better to use absolute path")
-    parser.add_argument("--schema_file_path", type=str, default="",
-                        help="Schema path, it is better to use absolute path")
     parser.add_argument('--data_url', type=str, default=None, help='Dataset path')
     parser.add_argument('--train_url', type=str, default=None, help='Train output path')
     parser.add_argument('--modelarts', type=str, default='false',
@@ -145,6 +151,32 @@ def run_classifier():
     load_pretrain_checkpoint_path = args_opt.load_pretrain_checkpoint_path
     save_finetune_checkpoint_path = args_opt.save_finetune_checkpoint_path
     load_finetune_checkpoint_path = args_opt.load_finetune_checkpoint_path
+    if args_opt.task_type == 'chnsenticorp':
+        ernie_net_cfg.seq_length = 256
+        optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
+    elif args_opt.task_type == 'xnli':
+        ernie_net_cfg.seq_length = 512
+        optimizer_cfg.AdamWeightDecay.learning_rate = 1e-4
+    else:
+        raise ValueError("Unsupported task type.")
+
+    if args_opt.run_distribute == 'true':
+        if args_opt.device_target == "Ascend":
+            rank = args_opt.rank_id
+            device_num = args_opt.device_num
+            context.set_auto_parallel_context(device_num=device_num,
+                                              parallel_mode=ParallelMode.DATA_PARALLEL,
+                                              gradients_mean=True)
+            init()
+        elif args_opt.device_target == "GPU":
+            init("nccl")
+            context.set_auto_parallel_context(parallel_mode=ParallelMode.AUTO_PARALLEL,
+                                              gradients_mean=True)
+        else:
+            raise ValueError(args_opt.device_target)
+    else:
+        rank = 0
+        device_num = 1
 
     if args_opt.modelarts.lower() == 'true':
         import moxing as mox
@@ -172,15 +204,16 @@ def run_classifier():
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
 
-    netwithloss = ErnieCLS(ernie_net_cfg, True, num_labels=args_opt.num_class, dropout_prob=0.1)
+    netwithloss = ErnieCLS(ernie_net_cfg, True, num_labels=args_opt.num_labels, dropout_prob=0.1)
 
     if args_opt.do_train.lower() == "true":
         ds = create_finetune_dataset(batch_size=args_opt.train_batch_size,
-                            repeat_count=1,
-                            data_file_path=args_opt.train_data_file_path,
-                            schema_file_path=args_opt.schema_file_path,
-                            do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
-        do_train(ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
+                                     repeat_count=1,
+                                     data_file_path=args_opt.train_data_file_path,
+                                     rank_size=args_opt.device_num,
+                                     rank_id=rank,
+                                     do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
+        do_train(args_opt.task_type, ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
 
         if args_opt.do_eval.lower() == "true":
             if save_finetune_checkpoint_path == "":
@@ -194,9 +227,8 @@ def run_classifier():
         ds = create_finetune_dataset(batch_size=args_opt.eval_batch_size,
                             repeat_count=1,
                             data_file_path=args_opt.eval_data_file_path,
-                            schema_file_path=args_opt.schema_file_path,
                             do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
-        do_eval(ds, ErnieCLS, args_opt.num_class, load_finetune_checkpoint_path)
+        do_eval(ds, ErnieCLS, args_opt.num_labels, load_finetune_checkpoint_path)
 
     if args_opt.modelarts.lower() == 'true' and args_opt.do_train.lower() == "true":
         mox.file.copy_parallel(save_finetune_checkpoint_path, args_opt.train_url)

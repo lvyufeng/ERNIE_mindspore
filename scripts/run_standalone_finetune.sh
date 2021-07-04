@@ -37,40 +37,37 @@ TASK_TYPE=$1
 DEVICE_ID=5
 case $TASK_TYPE in
   "msra_ner")
-    python ${CUR_DIR}/run_ernie_ner.py  \
-        --device_target="Ascend" \
-        --number_labels=7 \
-        --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
-        --do_train="true" \
-        --do_eval="true" \
-        --device_id=$DEVICE_ID \
-        --epoch_num=6 \
-        --train_data_shuffle="true" \
-        --eval_data_shuffle="false" \
-        --train_batch_size=16 \
-        --eval_batch_size=16 \
-        --save_finetune_checkpoint_path="${SAVE_PATH}" \
-        --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
-        --train_data_file_path="${DATA_PATH}/msra_ner/msra_ner_train.mindrecord" \
-        --eval_data_file_path="${DATA_PATH}/msra_ner/msra_ner_dev.mindrecord" \
-        --schema_file_path="" > ${GLOG_log_dir}/train_ner_log.txt 2>&1 &
+    PY_NAME=run_ernie_ner
+    NUM_LABELS=7
+    NUM_EPOCH=6
+    TRAIN_BATCH_SIZE=16
+    EVAL_BATCH_SIZE=16
+    LABEL_MAP="${DATA_PATH}/msra_ner/label_map.json"
     ;;
   "chnsenticorp")
-    python ${CUR_DIR}/run_ernie_classifier.py  \
-        --device_target="Ascend" \
-        --do_train="true" \
-        --do_eval="true" \
-        --device_id=$DEVICE_ID \
-        --epoch_num=10 \
-        --num_class=2 \
-        --train_data_shuffle="true" \
-        --eval_data_shuffle="false" \
-        --train_batch_size=24 \
-        --eval_batch_size=32 \
-        --save_finetune_checkpoint_path="${SAVE_PATH}" \
-        --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
-        --train_data_file_path="${DATA_PATH}/chnsenticorp/chnsenticorp_train.mindrecord" \
-        --eval_data_file_path="${DATA_PATH}/chnsenticorp/chnsenticorp_dev.mindrecord" \
-        --schema_file_path="" > ${GLOG_log_dir}/train_classifier_log.txt 2>&1 &
+    PY_NAME=run_ernie_classifier
+    NUM_LABELS=3
+    NUM_EPOCH=10
+    TRAIN_BATCH_SIZE=24
+    EVAL_BATCH_SIZE=32
+    LABEL_MAP=""
     ;;
   esac
+
+python ${CUR_DIR}/${PY_NAME}.py  \
+    --device_target="Ascend" \
+    --number_labels=${NUM_LABELS} \
+    --label_map_config=${LABEL_MAP} \
+    --do_train="true" \
+    --do_eval="true" \
+    --device_id=$DEVICE_ID \
+    --epoch_num=${NUM_EPOCH} \
+    --train_data_shuffle="true" \
+    --eval_data_shuffle="false" \
+    --train_batch_size=$TRAIN_BATCH_SIZE \
+    --eval_batch_size=$EVAL_BATCH_SIZE \
+    --save_finetune_checkpoint_path="${SAVE_PATH}" \
+    --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
+    --train_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_train.mindrecord" \
+    --eval_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_dev.mindrecord" \
+    --schema_file_path="" > ${GLOG_log_dir}/train_${TASK_TYPE}_log.txt 2>&1 &

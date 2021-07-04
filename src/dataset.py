@@ -51,15 +51,18 @@ def create_ernie_dataset(device_num=1, rank=0, do_shuffle="true", data_dir=None,
     return data_set
 
 def create_finetune_dataset(batch_size=1,
-                   repeat_count=1,
-                   data_file_path=None,
-                   schema_file_path=None,
-                   do_shuffle=True):
+                            repeat_count=1,
+                            data_file_path=None,
+                            rank_size=1,
+                            rank_id=0,
+                            do_shuffle=True):
     """create finetune or evaluation dataset"""
     type_cast_op = C.TypeCast(mstype.int32)
     data_set = ds.MindDataset([data_file_path],
                               columns_list=["input_ids", "input_mask", "token_type_id", "label_ids"],
-                              shuffle=do_shuffle)
+                              shuffle=do_shuffle,
+                              num_shards=rank_size,
+                              shard_id=rank_id)
     data_set = data_set.map(operations=type_cast_op, input_columns="label_ids")
     data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
     data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
