@@ -65,4 +65,6 @@ case $TASK_TYPE in
         --eval_data_file_path="${DATA_PATH}/chnsenticorp/chnsenticorp_test.mindrecord" \
         --schema_file_path="" > ${GLOG_log_dir}/eval_classifier_log.txt 2>&1 &
     ;;
+  "xnli")
+    ;;
   esac
