@@ -17,6 +17,7 @@
 Ernie finetune and evaluation model script.
 '''
 
+from src.ernie_for_finetune import ErnieMRCCell
 import mindspore.nn as nn
 from mindspore.common.initializer import TruncatedNormal
 from mindspore.ops import operations as P
@@ -94,3 +95,31 @@ class ErnieNERModel(nn.Cell):
         else:
             return_value = self.log_softmax(logits)
         return return_value
+
+class ErnieMRCModel(nn.Cell):
+    '''
+    This class is responsible for SQuAD
+    '''
+    def __init__(self, config, is_training, num_labels=2, dropout_prob=0.0, use_one_hot_embeddings=False):
+        super(ErnieMRCCell, self).__init__()
+        if not is_training:
+            config.hidden_dropout_prob = 0.0
+            config.hidden_probs_dropout_prob = 0.0
+        self.bert = ErnieModel(config, is_training, use_one_hot_embeddings)
+        self.weight_init = TruncatedNormal(config.initializer_range)
+        self.dense1 = nn.Dense(config.hidden_size, num_labels, weight_init=self.weight_init,
+                               has_bias=True).to_float(config.compute_type)
+        self.num_labels = num_labels
+        self.dtype = config.dtype
+        self.log_softmax = P.LogSoftmax(axis=1)
+        self.is_training = is_training
+
+    def construct(self, input_ids, input_mask, token_type_id):
+        sequence_output, _, _ = self.bert(input_ids, token_type_id, input_mask)
+        batch_size, seq_length, hidden_size = P.Shape()(sequence_output)
+        sequence = P.Reshape()(sequence_output, (-1, hidden_size))
+        logits = self.dense1(sequence)
+        logits = P.Cast()(logits, self.dtype)
+        logits = P.Reshape()(logits, (batch_size, seq_length, self.num_labels))
+        logits = self.log_softmax(logits)
+        return logits

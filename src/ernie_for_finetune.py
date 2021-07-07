@@ -28,7 +28,7 @@ from mindspore.nn.wrap.grad_reducer import DistributedGradReducer
 from mindspore.context import ParallelMode
 from mindspore.communication.management import get_group_size
 from mindspore import context
-from src.finetune_eval_model import ErnieCLSModel, ErnieNERModel
+from src.finetune_eval_model import ErnieCLSModel, ErnieMRCModel, ErnieNERModel, ErnieMRCCell
 from src.utils import CrossEntropyCalculation
 from src.crf import CRF
 
@@ -221,3 +221,132 @@ class ErnieNER(nn.Cell):
         else:
             loss = self.loss(logits, label_ids, self.num_labels)
         return loss
+
+class ErnieMRCCell(nn.Cell):
+    """
+    specifically defined for finetuning where only four inputs tensor are needed.
+    """
+    def __init__(self, network, optimizer, scale_update_cell=None):
+        super(ErnieMRCCell, self).__init__(auto_prefix=False)
+        self.network = network
+        self.network.set_grad()
+        self.weights = optimizer.parameters
+        self.optimizer = optimizer
+        self.grad = C.GradOperation(get_by_list=True, sens_param=True)
+        self.reducer_flag = False
+        self.allreduce = P.AllReduce()
+        self.parallel_mode = context.get_auto_parallel_context("parallel_mode")
+        if self.parallel_mode in [ParallelMode.DATA_PARALLEL, ParallelMode.HYBRID_PARALLEL]:
+            self.reducer_flag = True
+        self.grad_reducer = None
+        if self.reducer_flag:
+            mean = context.get_auto_parallel_context("gradients_mean")
+            degree = get_group_size()
+            self.grad_reducer = DistributedGradReducer(optimizer.parameters, mean, degree)
+        self.is_distributed = (self.parallel_mode != ParallelMode.STAND_ALONE)
+        self.cast = P.Cast()
+        self.alloc_status = P.NPUAllocFloatStatus()
+        self.get_status = P.NPUGetFloatStatus()
+        self.clear_status = P.NPUClearFloatStatus()
+        self.reduce_sum = P.ReduceSum(keep_dims=False)
+        self.base = Tensor(1, mstype.float32)
+        self.less_equal = P.LessEqual()
+        self.hyper_map = C.HyperMap()
+        self.loss_scale = None
+        self.loss_scaling_manager = scale_update_cell
+        if scale_update_cell:
+            self.loss_scale = Parameter(Tensor(scale_update_cell.get_loss_scale(), dtype=mstype.float32))
+
+    def construct(self,
+                  input_ids,
+                  input_mask,
+                  token_type_id,
+                  start_position,
+                  end_position,
+                  unique_id,
+                  is_impossible,
+                  sens=None):
+        """Ernie MRC"""
+        weights = self.weights
+        init = self.alloc_status()
+        loss = self.network(input_ids,
+                            input_mask,
+                            token_type_id,
+                            start_position,
+                            end_position,
+                            unique_id,
+                            is_impossible)
+        if sens is None:
+            scaling_sens = self.loss_scale
+        else:
+            scaling_sens = sens
+        init = F.depend(init, loss)
+        clear_status = self.clear_status(init)
+        scaling_sens = F.depend(scaling_sens, clear_status)
+        grads = self.grad(self.network, weights)(input_ids,
+                                                 input_mask,
+                                                 token_type_id,
+                                                 start_position,
+                                                 end_position,
+                                                 unique_id,
+                                                 is_impossible,
+                                                 self.cast(scaling_sens,
+                                                           mstype.float32))
+        grads = self.hyper_map(F.partial(grad_scale, scaling_sens), grads)
+        grads = self.hyper_map(F.partial(clip_grad, GRADIENT_CLIP_TYPE, GRADIENT_CLIP_VALUE), grads)
+        if self.reducer_flag:
+            grads = self.grad_reducer(grads)
+        init = F.depend(init, grads)
+        get_status = self.get_status(init)
+        init = F.depend(init, get_status)
+        flag_sum = self.reduce_sum(init, (0,))
+        if self.is_distributed:
+            flag_reduce = self.allreduce(flag_sum)
+            cond = self.less_equal(self.base, flag_reduce)
+        else:
+            cond = self.less_equal(self.base, flag_sum)
+        overflow = cond
+        if sens is None:
+            overflow = self.loss_scaling_manager(self.loss_scale, cond)
+        if overflow:
+            succ = False
+        else:
+            succ = self.optimizer(grads)
+        ret = (loss, cond)
+        return F.depend(ret, succ)
+
+class ErnieMRC(nn.Cell):
+    '''
+    Train interface for Ernie MRC finetuning task.
+    '''
+    def __init__(self, config, is_training, num_labels=2, dropout_prob=0.0, use_one_hot_embeddings=False):
+        super(ErnieMRC, self).__init__()
+        self.ernie = ErnieMRCModel(config, is_training, num_labels, dropout_prob, use_one_hot_embeddings)
+        self.loss = CrossEntropyCalculation(is_training)
+        self.num_labels = num_labels
+        self.seq_length = config.seq_length
+        self.is_training = is_training
+        self.total_num = Parameter(Tensor([0], mstype.float32))
+        self.start_num = Parameter(Tensor([0], mstype.float32))
+        self.end_num = Parameter(Tensor([0], mstype.float32))
+        self.sum = P.ReduceSum()
+        self.equal = P.Equal()
+        self.argmax = P.ArgMaxWithValue(axis=1)
+        self.squeeze = P.Squeeze(axis=-1)
+
+    def construct(self, input_ids, input_mask, token_type_id, start_position, end_position, unique_id):
+        """interface for MRC finetuning task"""
+        logits = self.ernie(input_ids, input_mask, token_type_id)
+        if self.is_training:
+            unstacked_logits_0 = self.squeeze(logits[:, :, 0:1])
+            unstacked_logits_1 = self.squeeze(logits[:, :, 1:2])
+            start_loss = self.loss(unstacked_logits_0, start_position, self.seq_length)
+            end_loss = self.loss(unstacked_logits_1, end_position, self.seq_length)
+            total_loss = (start_loss + end_loss) / 2.0
+        else:
+            start_logits = self.squeeze(logits[:, :, 0:1])
+            start_logits = start_logits + 100 * input_mask
+            end_logits = self.squeeze(logits[:, :, 1:2])
+            end_logits = end_logits + 100 * input_mask
+            total_loss = (unique_id, start_logits, end_logits)
+        return total_loss

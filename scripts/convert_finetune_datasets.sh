@@ -19,7 +19,7 @@ then
     echo "Please run the script as: "
     echo "sh convert_finetune_dataset.sh DATASET_PATH OUTPUT_PATH TASK_TYPE"
     echo "for example: sh convert_finetune_dataset.sh /path/msra_ner/ /path/msra_ner/mindrecord/ msra_ner"
-    echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli, dbqa]"
+    echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli, dbqa, drcd, cmrc]"
     echo "It is better to use absolute path."
     echo "=============================================================================================================="
 exit 1
@@ -53,18 +53,34 @@ case $TASK_TYPE in
   "msra_ner")
     MAX_SEQ_LEN=256
     SHARD_NUM=1
+    FILE_TYPE="tsv"
     ;;
   "chnsenticorp")
     MAX_SEQ_LEN=256
     SHARD_NUM=1
+    FILE_TYPE="tsv"
     ;;
   "xnli")
     MAX_SEQ_LEN=512
     SHARD_NUM=10
+    FILE_TYPE="tsv"
     ;;
   "dbqa")
     MAX_SEQ_LEN=512
     SHARD_NUM=10
+    FILE_TYPE="tsv"
+    ;;
+  "drcd")
+    MAX_SEQ_LEN=512
+    MAX_QUERY_LEN=64
+    SHARD_NUM=10
+    FILE_TYPE="json"
+    ;;
+  "cmrc")
+    MAX_SEQ_LEN=512
+    MAX_QUERY_LEN=64
+    SHARD_NUM=10
+    FILE_TYPE="json"
     ;;
   esac
 
@@ -78,11 +94,13 @@ python ${CUR_DIR}/src/task_reader.py  \
     --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
     --max_seq_len=$MAX_SEQ_LEN \
+    --max_query_len=$MAX_QUERY_LEN \
     --do_lower_case="true" \
     --random_seed=1 \
-    --input_file="${DATASET_PATH}/train.tsv" \
+    --input_file="${DATASET_PATH}/train.${FILE_TYPE}" \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_train.mindrecord" \
-    --shard_num=$SHARD_NUM
+    --shard_num=$SHARD_NUM \
+    --is_training=true
 
 # dev dataset
 python ${CUR_DIR}/src/task_reader.py  \
@@ -90,11 +108,13 @@ python ${CUR_DIR}/src/task_reader.py  \
     --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
     --max_seq_len=$MAX_SEQ_LEN \
+    --max_query_len=$MAX_QUERY_LEN \
     --do_lower_case="true" \
     --random_seed=1 \
-    --input_file="${DATASET_PATH}/dev.tsv" \
+    --input_file="${DATASET_PATH}/dev.${FILE_TYPE}" \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_dev.mindrecord" \
-    --shard_num=1
+    --shard_num=1 \
+    --is_training=false
 
 # test dataset
 python ${CUR_DIR}/src/task_reader.py  \
@@ -102,9 +122,10 @@ python ${CUR_DIR}/src/task_reader.py  \
     --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
     --max_seq_len=$MAX_SEQ_LEN \
+    --max_query_len=$MAX_QUERY_LEN \
     --do_lower_case="true" \
     --random_seed=1 \
-    --input_file="${DATASET_PATH}/test.tsv" \
+    --input_file="${DATASET_PATH}/test.${FILE_TYPE}" \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_test.mindrecord" \
-    --shard_num=1
-    
+    --shard_num=1 \
+    --is_training=false \
