@@ -31,7 +31,7 @@ from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMoni
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
 from src.ernie_for_finetune import ErnieMRCCell, ErnieMRC
-from src.dataset import create_finetune_dataset
+from src.dataset import create_mrc_dataset
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
 from mindspore.context import ParallelMode
@@ -98,23 +98,22 @@ def do_eval(dataset=None, load_checkpoint_path="", eval_batch_size=1):
     model = Model(net)
     output = []
     RawResult = collections.namedtuple("RawResult", ["unique_id", "start_logits", "end_logits"])
-    columns_list = ["input_ids", "input_mask", "segment_ids", "unique_ids"]
+    columns_list = ["input_ids", "input_mask", "token_type_id", "unique_id"]
     for data in dataset.create_dict_iterator(num_epochs=1):
         input_data = []
         for i in columns_list:
             input_data.append(data[i])
-        input_ids, input_mask, segment_ids, unique_ids = input_data
+        input_ids, input_mask, token_type_id, unique_ids = input_data
         start_positions = Tensor([1], mstype.float32)
         end_positions = Tensor([1], mstype.float32)
-        is_impossible = Tensor([1], mstype.float32)
-        logits = model.predict(input_ids, input_mask, segment_ids, start_positions,
-                               end_positions, unique_ids, is_impossible)
+        logits = model.predict(input_ids, input_mask, token_type_id, start_positions,
+                               end_positions, unique_ids)
         ids = logits[0].asnumpy()
         start = logits[1].asnumpy()
         end = logits[2].asnumpy()
 
-        for i in range(eval_batch_size):
-            unique_id = int(ids[i])
+        for i, value in enumerate(ids):            
+            unique_id = int(value)
             start_logits = [float(x) for x in start[i].flat]
             end_logits = [float(x) for x in end[i].flat]
             output.append(RawResult(
@@ -140,7 +139,6 @@ def parse_args():
     parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default: 0.")
     parser.add_argument("--epoch_num", type=int, default=3, help="Epoch number, default is 3.")
     parser.add_argument("--number_labels", type=int, default=3, help="The number of class, default is 3.")
-    parser.add_argument("--label_map_config", type=str, default="", help="Label map file path")
     parser.add_argument("--train_data_shuffle", type=str, default="true", choices=["true", "false"],
                         help="Enable train data shuffle, default is true")
     parser.add_argument("--eval_data_shuffle", type=str, default="false", choices=["true", "false"],
@@ -160,6 +158,7 @@ def parse_args():
     parser.add_argument('--train_url', type=str, default=None, help='Train output path')
     parser.add_argument('--modelarts', type=str, default='false',
                         help='train on modelarts or not, default is false')
+    parser.add_argument("--is_training", type=bool, default=False, help='Whether is training.')
     args_opt = parser.parse_args()
 
     return args_opt
@@ -177,7 +176,7 @@ def run_mrc():
         optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
     elif args_opt.task_type == 'cmrc':
         ernie_net_cfg.seq_length = 512
-        optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
+        optimizer_cfg.AdamWeightDecay.learning_rate = 3e-5
     else:
         raise ValueError("Unsupported task type.")
 
@@ -210,28 +209,26 @@ def run_mrc():
         if ernie_net_cfg.compute_type != mstype.float32:
             logger.warning('GPU only support fp32 temporarily, run with fp32.')
             ernie_net_cfg.compute_type = mstype.float32
-        if optimizer_cfg.optimizer == 'AdamWeightDecay' and args_opt.use_crf.lower() == "false":
+        if optimizer_cfg.optimizer == 'AdamWeightDecay':
             context.set_context(enable_graph_kernel=True)
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
-    with open(args_opt.label_map_config) as f:
-        tag_to_index = json.load(f)
-    number_labels = args_opt.number_labels
+
     if args_opt.do_train.lower() == "true":
-        netwithloss = ErnieMRC(ernie_net_cfg, args_opt.train_batch_size, True, num_labels=number_labels,
-                              use_crf=(args_opt.use_crf.lower() == "true"),
-                              tag_to_index=tag_to_index, dropout_prob=0.1)
-        ds = create_finetune_dataset(batch_size=args_opt.train_batch_size,
-                            repeat_count=1,
-                            data_file_path=args_opt.train_data_file_path,
-                            do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
+        netwithloss = ErnieMRC(ernie_net_cfg, args_opt.is_training, num_labels=args_opt.number_labels, dropout_prob=0.1)
+        ds = create_mrc_dataset(batch_size=args_opt.train_batch_size,
+                                repeat_count=1,
+                                data_file_path=args_opt.train_data_file_path,
+                                rank_size=args_opt.device_num,
+                                rank_id=rank,
+                                do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
         print("==============================================================")
         print("processor_name: {}".format(args_opt.device_target))
         print("test_name: ERNIE Finetune Training")
-        print("model_name: {}".format("ERNIE+MLP+CRF" if args_opt.use_crf.lower() == "true" else "ERNIE + MLP"))
+        print("model_name: {}".format("ERNIE + MLP"))
         print("batch_size: {}".format(args_opt.train_batch_size))
 
-        do_train(args_opt.task_type, ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
+        do_train(args_opt.task_type + '-' + str(rank), ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
 
         if args_opt.do_eval.lower() == "true":
             if save_finetune_checkpoint_path == "":
@@ -242,7 +239,7 @@ def run_mrc():
                                                            ds.get_dataset_size(), epoch_num, args_opt.task_type)
 
     if args_opt.do_eval.lower() == "true":
-        ds = create_finetune_dataset(batch_size=args_opt.eval_batch_size,
+        ds = create_mrc_dataset(batch_size=args_opt.eval_batch_size,
                             repeat_count=1,
                             data_file_path=args_opt.eval_data_file_path,
                             do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))

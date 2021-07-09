@@ -104,7 +104,7 @@ class ErnieMRCModel(nn.Cell):
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.hidden_probs_dropout_prob = 0.0
-        self.bert = ErnieModel(config, is_training, use_one_hot_embeddings)
+        self.ernie = ErnieModel(config, is_training, use_one_hot_embeddings)
         self.weight_init = TruncatedNormal(config.initializer_range)
         self.dense1 = nn.Dense(config.hidden_size, num_labels, weight_init=self.weight_init,
                                has_bias=True).to_float(config.compute_type)
@@ -114,7 +114,7 @@ class ErnieMRCModel(nn.Cell):
         self.is_training = is_training
 
     def construct(self, input_ids, input_mask, token_type_id):
-        sequence_output, _, _ = self.bert(input_ids, token_type_id, input_mask)
+        sequence_output, _ = self.ernie(input_ids, token_type_id, input_mask)
         batch_size, seq_length, hidden_size = P.Shape()(sequence_output)
         sequence = P.Reshape()(sequence_output, (-1, hidden_size))
         logits = self.dense1(sequence)
