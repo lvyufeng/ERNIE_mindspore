@@ -17,7 +17,6 @@
 Ernie finetune and evaluation model script.
 '''
 
-from src.ernie_for_finetune import ErnieMRCCell
 import mindspore.nn as nn
 from mindspore.common.initializer import TruncatedNormal
 from mindspore.ops import operations as P
@@ -101,7 +100,7 @@ class ErnieMRCModel(nn.Cell):
     This class is responsible for SQuAD
     '''
     def __init__(self, config, is_training, num_labels=2, dropout_prob=0.0, use_one_hot_embeddings=False):
-        super(ErnieMRCCell, self).__init__()
+        super(ErnieMRCModel, self).__init__()
         if not is_training:
             config.hidden_dropout_prob = 0.0
             config.hidden_probs_dropout_prob = 0.0

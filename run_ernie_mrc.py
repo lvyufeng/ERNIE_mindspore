@@ -34,6 +34,9 @@ from src.ernie_for_finetune import ErnieMRCCell, ErnieMRC
 from src.dataset import create_finetune_dataset
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
+from mindspore.context import ParallelMode
+from mindspore.communication.management import init
+
 
 _cur_dir = os.getcwd()
 
@@ -122,45 +125,43 @@ def do_eval(dataset=None, load_checkpoint_path="", eval_batch_size=1):
 
 def parse_args():
     """set and check parameters."""
-    parser = argparse.ArgumentParser(description="run ner")
-    parser.add_argument("--task_type", type=str, default="msra_ner", choices=["msra_ner"],
-                        help="Task type, default is msra_ner")
+    parser = argparse.ArgumentParser(description="run mrc")
+    parser.add_argument("--task_type", type=str, default="drcd", choices=["drcd", "cmrc"],
+                        help="Task type, default is drcd")
     parser.add_argument("--device_target", type=str, default="Ascend", choices=["Ascend", "GPU"],
                         help="Device type, default is Ascend")
+    parser.add_argument("--run_distribute", type=str, default=False, help="Run distribute, default: false.")
     parser.add_argument("--do_train", type=str, default="false", choices=["true", "false"],
-                        help="Eable train, default is false")
+                        help="Enable train, default is false")
     parser.add_argument("--do_eval", type=str, default="false", choices=["true", "false"],
-                        help="Eable eval, default is false")
-    parser.add_argument("--number_labels", type=int, default=0, help='Number of NER labels, default is 0')
-    parser.add_argument("--label_map_config", type=str, default="", help="Label map file path")
+                        help="Enable eval, default is false")
+    parser.add_argument("--device_num", type=int, default=1, help="Use device nums, default: 1.")
     parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
-    parser.add_argument("--epoch_num", type=int, default=5, help="Epoch number, default is 5.")
+    parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default: 0.")
+    parser.add_argument("--epoch_num", type=int, default=3, help="Epoch number, default is 3.")
+    parser.add_argument("--number_labels", type=int, default=3, help="The number of class, default is 3.")
+    parser.add_argument("--label_map_config", type=str, default="", help="Label map file path")
     parser.add_argument("--train_data_shuffle", type=str, default="true", choices=["true", "false"],
                         help="Enable train data shuffle, default is true")
     parser.add_argument("--eval_data_shuffle", type=str, default="false", choices=["true", "false"],
                         help="Enable eval data shuffle, default is false")
     parser.add_argument("--train_batch_size", type=int, default=32, help="Train batch size, default is 32")
     parser.add_argument("--eval_batch_size", type=int, default=1, help="Eval batch size, default is 1")
-    parser.add_argument("--vocab_file_path", type=str, default="", help="Vocab file path, used in clue benchmark")
-    parser.add_argument("--label_file_path", type=str, default="", help="label file path, used in clue benchmark")
     parser.add_argument("--save_finetune_checkpoint_path", type=str, default="", help="Save checkpoint path")
     parser.add_argument("--load_pretrain_checkpoint_path", type=str, default="", help="Load checkpoint file path")
+    parser.add_argument("--local_pretrain_checkpoint_path", type=str, default="",
+                        help="Local pretrain checkpoint file path")
     parser.add_argument("--load_finetune_checkpoint_path", type=str, default="", help="Load checkpoint file path")
     parser.add_argument("--train_data_file_path", type=str, default="",
                         help="Data path, it is better to use absolute path")
     parser.add_argument("--eval_data_file_path", type=str, default="",
                         help="Data path, it is better to use absolute path")
-    parser.add_argument("--dataset_format", type=str, default="mindrecord", choices=["mindrecord", "tfrecord"],
-                        help="Dataset format, support mindrecord or tfrecord")
-    parser.add_argument("--schema_file_path", type=str, default="",
-                        help="Schema path, it is better to use absolute path")
+    parser.add_argument('--data_url', type=str, default=None, help='Dataset path')
+    parser.add_argument('--train_url', type=str, default=None, help='Train output path')
+    parser.add_argument('--modelarts', type=str, default='false',
+                        help='train on modelarts or not, default is false')
     args_opt = parser.parse_args()
-    if args_opt.do_train.lower() == "false" and args_opt.do_eval.lower() == "false":
-        raise ValueError("At least one of 'do_train' or 'do_eval' must be true")
-    if args_opt.do_train.lower() == "true" and args_opt.train_data_file_path == "":
-        raise ValueError("'train_data_file_path' must be set when do finetune task")
-    if args_opt.do_eval.lower() == "true" and args_opt.eval_data_file_path == "":
-        raise ValueError("'eval_data_file_path' must be set when do evaluation task")
+
     return args_opt
 
 
@@ -168,7 +169,36 @@ def run_mrc():
     """run mrc task"""
     args_opt = parse_args()
     epoch_num = args_opt.epoch_num
-    assessment_method = "f1"
+    load_pretrain_checkpoint_path = args_opt.load_pretrain_checkpoint_path
+    save_finetune_checkpoint_path = args_opt.save_finetune_checkpoint_path
+    load_finetune_checkpoint_path = args_opt.load_finetune_checkpoint_path
+    if args_opt.task_type == 'drcd':
+        ernie_net_cfg.seq_length = 512
+        optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
+    elif args_opt.task_type == 'cmrc':
+        ernie_net_cfg.seq_length = 512
+        optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
+    else:
+        raise ValueError("Unsupported task type.")
+
+    if args_opt.run_distribute == 'true':
+        if args_opt.device_target == "Ascend":
+            rank = args_opt.rank_id
+            device_num = args_opt.device_num
+            context.set_auto_parallel_context(device_num=device_num,
+                                              parallel_mode=ParallelMode.DATA_PARALLEL,
+                                              gradients_mean=True)
+            init()
+        elif args_opt.device_target == "GPU":
+            init("nccl")
+            context.set_auto_parallel_context(parallel_mode=ParallelMode.AUTO_PARALLEL,
+                                              gradients_mean=True)
+        else:
+            raise ValueError(args_opt.device_target)
+    else:
+        rank = 0
+        device_num = 1
+    
     load_pretrain_checkpoint_path = args_opt.load_pretrain_checkpoint_path
     save_finetune_checkpoint_path = args_opt.save_finetune_checkpoint_path
     load_finetune_checkpoint_path = args_opt.load_finetune_checkpoint_path
@@ -216,9 +246,7 @@ def run_mrc():
                             repeat_count=1,
                             data_file_path=args_opt.eval_data_file_path,
                             do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
-        do_eval(ds, ErnieMRC, args_opt.use_crf, number_labels, assessment_method,
-                args_opt.eval_data_file_path, load_finetune_checkpoint_path, args_opt.vocab_file_path,
-                args_opt.label_file_path, tag_to_index, args_opt.eval_batch_size)
+        do_eval(ds, load_finetune_checkpoint_path, args_opt.eval_batch_size)
 
 if __name__ == "__main__":
     run_mrc()

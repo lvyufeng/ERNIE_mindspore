@@ -28,7 +28,7 @@ from mindspore.nn.wrap.grad_reducer import DistributedGradReducer
 from mindspore.context import ParallelMode
 from mindspore.communication.management import get_group_size
 from mindspore import context
-from src.finetune_eval_model import ErnieCLSModel, ErnieMRCModel, ErnieNERModel, ErnieMRCCell
+from src.finetune_eval_model import ErnieCLSModel, ErnieMRCModel, ErnieNERModel
 from src.utils import CrossEntropyCalculation
 from src.crf import CRF
 

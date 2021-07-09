@@ -30,9 +30,9 @@ DATA_PATH=${CUR_DIR}/data
 SAVE_PATH=${CUR_DIR}/save_models
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-export DEVICE_NUM=2
+export DEVICE_NUM=6
 export RANK_TABLE_FILE=$PATH1
-START_DEVICE_NUM=6
+START_DEVICE_NUM=2
 
 TASK_TYPE=$2
 case $TASK_TYPE in
@@ -52,7 +52,17 @@ case $TASK_TYPE in
     TRAIN_BATCH_SIZE=8
     EVAL_BATCH_SIZE=8
     TRAIN_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_train.mindrecord0"
-    EVAL_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_dev.mindrecord"    ;;
+    EVAL_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_dev.mindrecord"    
+    ;;
+  "drcd")
+    PY_NAME=run_ernie_mrc
+    NUM_LABELS=2
+    NUM_EPOCH=3
+    TRAIN_BATCH_SIZE=8
+    EVAL_BATCH_SIZE=8
+    TRAIN_DATA_PATH="${DATA_PATH}/drcd/drcd_train.mindrecord0"
+    EVAL_DATA_PATH="${DATA_PATH}/drcd/drcd_dev.mindrecord"    
+    ;;
   esac
 
 for((i=0; i<$DEVICE_NUM; i++))

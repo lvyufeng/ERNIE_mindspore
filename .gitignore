@@ -146,5 +146,4 @@ result_files/
 time_result/
 
 *.zip
-rank_table.json
-rank_table_2.json
+rank_table*.json
