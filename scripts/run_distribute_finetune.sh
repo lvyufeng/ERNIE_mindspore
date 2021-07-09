@@ -30,9 +30,9 @@ DATA_PATH=${CUR_DIR}/data
 SAVE_PATH=${CUR_DIR}/save_models
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-export DEVICE_NUM=6
+export DEVICE_NUM=8
 export RANK_TABLE_FILE=$PATH1
-START_DEVICE_NUM=2
+START_DEVICE_NUM=0
 
 TASK_TYPE=$2
 case $TASK_TYPE in
@@ -58,8 +58,8 @@ case $TASK_TYPE in
     PY_NAME=run_ernie_mrc
     NUM_LABELS=2
     NUM_EPOCH=3
-    TRAIN_BATCH_SIZE=8
-    EVAL_BATCH_SIZE=8
+    TRAIN_BATCH_SIZE=16
+    EVAL_BATCH_SIZE=16
     TRAIN_DATA_PATH="${DATA_PATH}/drcd/drcd_train.mindrecord0"
     EVAL_DATA_PATH="${DATA_PATH}/drcd/drcd_dev.mindrecord"    
     ;;
@@ -93,5 +93,6 @@ do
         --save_finetune_checkpoint_path="${SAVE_PATH}" \
         --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
         --train_data_file_path=$TRAIN_DATA_PATH \
-        --eval_data_file_path=$EVAL_DATA_PATH > ${GLOG_log_dir}/train_${TASK_TYPE}_log_$i.txt 2>&1 &
+        --eval_data_file_path=$EVAL_DATA_PATH \
+        --is_training=true > ${GLOG_log_dir}/train_${TASK_TYPE}_log_$i.txt 2>&1 &
 done

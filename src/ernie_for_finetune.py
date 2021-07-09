@@ -264,7 +264,6 @@ class ErnieMRCCell(nn.Cell):
                   start_position,
                   end_position,
                   unique_id,
-                  is_impossible,
                   sens=None):
         """Ernie MRC"""
         weights = self.weights
@@ -274,8 +273,7 @@ class ErnieMRCCell(nn.Cell):
                             token_type_id,
                             start_position,
                             end_position,
-                            unique_id,
-                            is_impossible)
+                            unique_id)
         if sens is None:
             scaling_sens = self.loss_scale
         else:
@@ -289,7 +287,6 @@ class ErnieMRCCell(nn.Cell):
                                                  start_position,
                                                  end_position,
                                                  unique_id,
-                                                 is_impossible,
                                                  self.cast(scaling_sens,
                                                            mstype.float32))
         grads = self.hyper_map(F.partial(grad_scale, scaling_sens), grads)

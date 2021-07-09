@@ -71,3 +71,27 @@ def create_finetune_dataset(batch_size=1,
     # apply batch operations
     data_set = data_set.batch(batch_size, drop_remainder=False)
     return data_set
+
+def create_mrc_dataset(batch_size=1,
+                        repeat_count=1,
+                        data_file_path=None,
+                        rank_size=1,
+                        rank_id=0,
+                        do_shuffle=True):
+    """create finetune or evaluation dataset"""
+    type_cast_op = C.TypeCast(mstype.int32)
+    data_set = ds.MindDataset(data_file_path,
+                              columns_list=["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"],
+                              shuffle=do_shuffle,
+                              num_shards=rank_size,
+                              shard_id=rank_id)
+    data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
+    data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
+    data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
+    data_set = data_set.map(operations=type_cast_op, input_columns="start_position")
+    data_set = data_set.map(operations=type_cast_op, input_columns="end_position")
+    data_set = data_set.map(operations=type_cast_op, input_columns="unique_id")
+    data_set = data_set.repeat(repeat_count)
+    # apply batch operations
+    data_set = data_set.batch(batch_size, drop_remainder=False)
+    return data_set
