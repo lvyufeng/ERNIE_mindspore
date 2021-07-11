@@ -1,6 +1,11 @@
 if [ $# -ne 2 ]
 then
-    echo "Usage: sh run_distribute_finetune.sh [RANK_TABLE_FILE] [TASK_TYPE]"
+    echo "=============================================================================================================="
+    echo "Please run the script as: "
+    echo "sh run_distribute_finetune.sh [RANK_TABLE_FILE] [TASK_TYPE]"
+    echo "for example: sh run_standalone_finetune.sh xnli"
+    echo "TASK_TYPE including [xnli, dbqa, drcd]"
+    echo "=============================================================================================================="
 exit 1
 fi
 
@@ -25,7 +30,7 @@ ulimit -u unlimited
 mkdir -p ms_log
 mkdir -p save_models
 CUR_DIR=`pwd`
-MODEL_PATH=${CUR_DIR}/pretrain_models
+MODEL_PATH=${CUR_DIR}/pretrain_models/converted
 DATA_PATH=${CUR_DIR}/data
 SAVE_PATH=${CUR_DIR}/save_models
 export GLOG_log_dir=${CUR_DIR}/ms_log
@@ -40,8 +45,8 @@ case $TASK_TYPE in
     PY_NAME=run_ernie_classifier
     NUM_LABELS=3
     NUM_EPOCH=3
-    TRAIN_BATCH_SIZE=64
-    EVAL_BATCH_SIZE=64
+    TRAIN_BATCH_SIZE=32
+    EVAL_BATCH_SIZE=32
     TRAIN_DATA_PATH="${DATA_PATH}/xnli/xnli_train.mindrecord0"
     EVAL_DATA_PATH="${DATA_PATH}/xnli/xnli_dev.mindrecord"
     ;;
@@ -94,5 +99,5 @@ do
         --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
         --train_data_file_path=$TRAIN_DATA_PATH \
         --eval_data_file_path=$EVAL_DATA_PATH \
-        --is_training=true > ${GLOG_log_dir}/train_${TASK_TYPE}_log_$i.txt 2>&1 &
+        --is_training=true > ${GLOG_log_dir}/${TASK_TYPE}_train_log_$i.txt 2>&1 &
 done

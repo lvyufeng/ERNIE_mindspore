@@ -19,7 +19,7 @@ then
     echo "Please run the script as: "
     echo "sh run_finetune_eval.sh TASK_TYPE"
     echo "for example: sh run_finetune_eval.sh msra_ner"
-    echo "TASK_TYPE including [msra_ner, chnsenticorp]"
+    echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli]"
     echo "=============================================================================================================="
 exit 1
 fi
@@ -34,37 +34,52 @@ export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
 TASK_TYPE=$1
-DEVICE_ID=5
+DEVICE_ID=0
 case $TASK_TYPE in
   "msra_ner")
-    python ${CUR_DIR}/run_ernie_ner.py  \
-        --device_target="Ascend" \
-        --number_labels=7 \
-        --label_map_config="${DATA_PATH}/msra_ner/label_map.json" \
-        --do_train="false" \
-        --do_eval="true" \
-        --device_id=$DEVICE_ID \
-        --train_data_shuffle="true" \
-        --eval_data_shuffle="false" \
-        --eval_batch_size=32 \
-        --load_finetune_checkpoint_path="${SAVE_PATH}/ner-6_1304.ckpt" \
-        --eval_data_file_path="${DATA_PATH}/msra_ner/msra_ner_test.mindrecord" \
-        --schema_file_path="" > ${GLOG_log_dir}/eval_ner_log.txt 2>&1 &
+    PY_NAME=run_ernie_ner
+    NUM_LABELS=7
+    EVAL_BATCH_SIZE=32
+    LABEL_MAP="${DATA_PATH}/msra_ner/label_map.json"
+    CKPT_PATH="${SAVE_PATH}/msra_ner-6_1304.ckpt" \
+    EVAL_DATA_PATH="${DATA_PATH}/msra_ner/msra_ner_test.mindrecord"
     ;;
   "chnsenticorp")
-    python ${CUR_DIR}/run_ernie_classifier.py  \
-        --device_target="Ascend" \
-        --do_train="false" \
-        --do_eval="true" \
-        --device_id=$DEVICE_ID \
-        --num_class=2 \
-        --train_data_shuffle="true" \
-        --eval_data_shuffle="false" \
-        --eval_batch_size=32 \
-        --load_finetune_checkpoint_path="${SAVE_PATH}/classifier-10_400.ckpt" \
-        --eval_data_file_path="${DATA_PATH}/chnsenticorp/chnsenticorp_test.mindrecord" \
-        --schema_file_path="" > ${GLOG_log_dir}/eval_classifier_log.txt 2>&1 &
+    PY_NAME=run_ernie_classifier
+    NUM_LABELS=3
+    EVAL_BATCH_SIZE=32
+    LABEL_MAP=""
+    CKPT_PATH="${SAVE_PATH}/chnsenticorp-0-10_400.ckpt" \
+    EVAL_DATA_PATH="${DATA_PATH}/chnsenticorp/chnsenticorp_test.mindrecord"
     ;;
   "xnli")
+    PY_NAME=run_ernie_classifier
+    NUM_LABELS=3
+    EVAL_BATCH_SIZE=32
+    LABEL_MAP=""
+    CKPT_PATH="${SAVE_PATH}/xnli-0_1-3_3068.ckpt" \
+    EVAL_DATA_PATH="${DATA_PATH}/xnli/xnli_test.mindrecord"
+    ;;
+  "dbqa")
+    PY_NAME=run_ernie_classifier
+    NUM_LABELS=2
+    EVAL_BATCH_SIZE=32
+    LABEL_MAP=""
+    CKPT_PATH="${SAVE_PATH}/dbqa-0-3_2842.ckpt" \
+    EVAL_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_test.mindrecord"
     ;;
   esac
+
+python ${CUR_DIR}/${PY_NAME}.py \
+    --task_type=${TASK_TYPE} \
+    --device_target="Ascend" \
+    --label_map_config=${LABEL_MAP} \
+    --do_train="false" \
+    --do_eval="true" \
+    --device_id=$DEVICE_ID \
+    --number_labels=${NUM_LABELS} \
+    --train_data_shuffle="true" \
+    --eval_data_shuffle="false" \
+    --eval_batch_size=${EVAL_BATCH_SIZE} \
+    --load_finetune_checkpoint_path=${CKPT_PATH} \
+    --eval_data_file_path=${EVAL_DATA_PATH} > ${GLOG_log_dir}/${TASK_TYPE}_eval_log.txt 2>&1 &

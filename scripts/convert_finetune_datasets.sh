@@ -17,7 +17,7 @@ if [ $# -ne 3 ]
 then
     echo "=============================================================================================================="
     echo "Please run the script as: "
-    echo "sh convert_finetune_dataset.sh DATASET_PATH OUTPUT_PATH TASK_TYPE"
+    echo "sh convert_finetune_dataset.sh [DATASET_PATH] [OUTPUT_PATH] [TASK_TYPE]"
     echo "for example: sh convert_finetune_dataset.sh /path/msra_ner/ /path/msra_ner/mindrecord/ msra_ner"
     echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli, dbqa, drcd, cmrc]"
     echo "It is better to use absolute path."
@@ -52,35 +52,45 @@ TASK_TYPE=$3
 case $TASK_TYPE in
   "msra_ner")
     MAX_SEQ_LEN=256
+    MAX_QUERY_LEN=0
     SHARD_NUM=1
     FILE_TYPE="tsv"
+    HAVE_TEST=true
     ;;
   "chnsenticorp")
     MAX_SEQ_LEN=256
+    MAX_QUERY_LEN=0
     SHARD_NUM=1
     FILE_TYPE="tsv"
+    HAVE_TEST=true
     ;;
   "xnli")
     MAX_SEQ_LEN=512
+    MAX_QUERY_LEN=0
     SHARD_NUM=10
     FILE_TYPE="tsv"
+    HAVE_TEST=true
     ;;
   "dbqa")
     MAX_SEQ_LEN=512
+    MAX_QUERY_LEN=0
     SHARD_NUM=10
     FILE_TYPE="tsv"
+    HAVE_TEST=true
     ;;
   "drcd")
     MAX_SEQ_LEN=512
     MAX_QUERY_LEN=64
     SHARD_NUM=10
     FILE_TYPE="json"
+    HAVE_TEST=true
     ;;
   "cmrc")
     MAX_SEQ_LEN=512
     MAX_QUERY_LEN=64
     SHARD_NUM=10
     FILE_TYPE="json"
+    HAVE_TEST=false
     ;;
   esac
 
@@ -117,6 +127,8 @@ python ${CUR_DIR}/src/finetune_task_reader.py  \
     --is_training=false
 
 # test dataset
+if [ ${HAVE_TEST} ]
+then
 python ${CUR_DIR}/src/finetune_task_reader.py  \
     --task_type=$TASK_TYPE \
     --label_map_config="${DATASET_PATH}/label_map.json" \
@@ -129,3 +141,4 @@ python ${CUR_DIR}/src/finetune_task_reader.py  \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_test.mindrecord" \
     --shard_num=1 \
     --is_training=false \
+fi

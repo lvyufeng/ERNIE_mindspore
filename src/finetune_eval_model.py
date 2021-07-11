@@ -61,7 +61,7 @@ class ErnieNERModel(nn.Cell):
     This class is responsible for sequence labeling task evaluation, i.e. NER(num_labels=11).
     The returned output represents the final logits as the results of log_softmax is proportional to that of softmax.
     """
-    def __init__(self, config, is_training, num_labels=11, use_crf=False, dropout_prob=0.0,
+    def __init__(self, config, is_training, num_labels=11, dropout_prob=0.0,
                  use_one_hot_embeddings=False):
         super(ErnieNERModel, self).__init__()
         if not is_training:
@@ -78,7 +78,6 @@ class ErnieNERModel(nn.Cell):
         self.dropout = nn.Dropout(1 - dropout_prob)
         self.reshape = P.Reshape()
         self.shape = (-1, config.hidden_size)
-        self.use_crf = use_crf
         self.origin_shape = (-1, config.seq_length, self.num_labels)
 
     def construct(self, input_ids, input_mask, token_type_id):
@@ -89,10 +88,7 @@ class ErnieNERModel(nn.Cell):
         seq = self.reshape(seq, self.shape)
         logits = self.dense_1(seq)
         logits = self.cast(logits, self.dtype)
-        if self.use_crf:
-            return_value = self.reshape(logits, self.origin_shape)
-        else:
-            return_value = self.log_softmax(logits)
+        return_value = self.log_softmax(logits)
         return return_value
 
 class ErnieMRCModel(nn.Cell):

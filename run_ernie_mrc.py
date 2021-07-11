@@ -87,7 +87,7 @@ def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", sav
     callbacks = [TimeMonitor(dataset.get_dataset_size()), LossCallBack(dataset.get_dataset_size()), ckpoint_cb]
     model.train(epoch_num, dataset, callbacks=callbacks)
 
-def do_eval(dataset=None, load_checkpoint_path="", eval_batch_size=1):
+def do_eval(dataset=None, load_checkpoint_path="", eval_batch_size=1, ernie_net_cfg=None):
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
@@ -243,7 +243,7 @@ def run_mrc():
                             repeat_count=1,
                             data_file_path=args_opt.eval_data_file_path,
                             do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
-        do_eval(ds, load_finetune_checkpoint_path, args_opt.eval_batch_size)
+        do_eval(ds, load_finetune_checkpoint_path, args_opt.eval_batch_size, ernie_net_cfg)
 
 if __name__ == "__main__":
     run_mrc()

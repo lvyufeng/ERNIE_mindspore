@@ -23,7 +23,7 @@ import argparse
 from src.ernie_for_finetune import ErnieFinetuneCell, ErnieCLS
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
 from src.dataset import create_finetune_dataset
-from src.assessment_method import Accuracy
+from src.assessment_method import Accuracy, F1
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 import mindspore.common.dtype as mstype
 from mindspore import context
@@ -78,7 +78,7 @@ def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", sav
     callbacks = [TimeMonitor(dataset.get_dataset_size()), LossCallBack(dataset.get_dataset_size()), ckpoint_cb]
     model.train(epoch_num, dataset, callbacks=callbacks)
 
-def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path=""):
+def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path="", ernie_net_cfg=None, assessment_method='accuracy'):
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
@@ -86,8 +86,16 @@ def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path=""
     net_for_pretraining.set_train(False)
     param_dict = load_checkpoint(load_checkpoint_path)
     load_param_into_net(net_for_pretraining, param_dict)
-
-    callback = Accuracy()
+    
+    if assessment_method == 'accuracy':
+        callback = Accuracy()
+    elif assessment_method == 'f1':
+        if number_labels == 2:
+            callback = F1(number_labels)
+        else:
+            callback = F1(number_labels, 'multilabel')
+    else:
+        raise ValueError("Unsupported assessment method.")
 
     evaluate_times = []
     columns_list = ["input_ids", "input_mask", "token_type_id", "label_ids"]
@@ -102,11 +110,20 @@ def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path=""
         evaluate_times.append(time_end - time_begin)
         callback.update(logits, label_ids)
     print("==============================================================")
-    print("acc_num {} , total_num {}, accuracy {:.6f}".format(callback.acc_num, callback.total_num,
-                                                              callback.acc_num / callback.total_num))
-    print("(w/o first and last) elapsed time: {}, per step time : {}".format(
-        sum(evaluate_times[1:-1]), sum(evaluate_times[1:-1])/(len(evaluate_times) - 2)))
+    eval_result_print(assessment_method, callback)
     print("==============================================================")
+
+def eval_result_print(assessment_method="accuracy", callback=None):
+    """ print eval result """
+    if assessment_method == "accuracy":
+        print("acc_num {} , total_num {}, accuracy {:.6f}".format(callback.acc_num, callback.total_num,
+                                                                  callback.acc_num / callback.total_num))
+    elif assessment_method == "f1":
+        print("Precision {:.6f} ".format(callback.TP / (callback.TP + callback.FP)))
+        print("Recall {:.6f} ".format(callback.TP / (callback.TP + callback.FN)))
+        print("F1 {:.6f} ".format(2 * callback.TP / (2 * callback.TP + callback.FP + callback.FN)))
+    else:
+        raise ValueError("Assessment method not supported, support: [accuracy, f1, mcc, spearman_correlation]")
 
 def run_classifier():
     """run classifier task"""
@@ -145,6 +162,7 @@ def run_classifier():
     parser.add_argument('--train_url', type=str, default=None, help='Train output path')
     parser.add_argument('--modelarts', type=str, default='false',
                         help='train on modelarts or not, default is false')
+    parser.add_argument("--is_training", type=bool, default=False, help='Whether is training.')
     args_opt = parser.parse_args()
 
     epoch_num = args_opt.epoch_num
@@ -154,15 +172,15 @@ def run_classifier():
     if args_opt.task_type == 'chnsenticorp':
         ernie_net_cfg.seq_length = 256
         optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
-    elif args_opt.task_type == 'msra_ner':
-        ernie_net_cfg.seq_length = 256
-        optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
+        assessment_method = 'accuracy'
     elif args_opt.task_type == 'xnli':
         ernie_net_cfg.seq_length = 512
         optimizer_cfg.AdamWeightDecay.learning_rate = 1e-4
+        assessment_method = 'accuracy'
     elif args_opt.task_type == 'dbqa':
         ernie_net_cfg.seq_length = 512
         optimizer_cfg.AdamWeightDecay.learning_rate = 2e-5
+        assessment_method = 'f1'
     else:
         raise ValueError("Unsupported task type.")
 
@@ -231,10 +249,10 @@ def run_classifier():
 
     if args_opt.do_eval.lower() == "true":
         ds = create_finetune_dataset(batch_size=args_opt.eval_batch_size,
-                            repeat_count=1,
-                            data_file_path=args_opt.eval_data_file_path,
-                            do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
-        do_eval(ds, ErnieCLS, args_opt.number_labels, load_finetune_checkpoint_path)
+                                     repeat_count=1,
+                                     data_file_path=args_opt.eval_data_file_path,
+                                     do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
+        do_eval(ds, ErnieCLS, args_opt.number_labels, load_finetune_checkpoint_path, ernie_net_cfg, assessment_method)
 
     if args_opt.modelarts.lower() == 'true' and args_opt.do_train.lower() == "true":
         mox.file.copy_parallel(save_finetune_checkpoint_path, args_opt.train_url)

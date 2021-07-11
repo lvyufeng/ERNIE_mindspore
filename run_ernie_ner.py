@@ -86,19 +86,18 @@ def eval_result_print(assessment_method="accuracy", callback=None):
     print("Recall {:.6f} ".format(callback.TP / (callback.TP + callback.FN)))
     print("F1 {:.6f} ".format(2 * callback.TP / (2 * callback.TP + callback.FP + callback.FN)))
     
-def do_eval(dataset=None, network=None, use_crf="", num_class=41, assessment_method="accuracy", data_file="",
+def do_eval(dataset=None, network=None, num_class=41, assessment_method="accuracy", data_file="",
             load_checkpoint_path="", vocab_file="", label_file="", tag_to_index=None, batch_size=1):
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
-    net_for_pretraining = network(ernie_net_cfg, batch_size, False, num_class,
-                                  use_crf=(use_crf.lower() == "true"), tag_to_index=tag_to_index)
+    net_for_pretraining = network(ernie_net_cfg, batch_size, False, num_class, tag_to_index=tag_to_index)
     net_for_pretraining.set_train(False)
     param_dict = load_checkpoint(load_checkpoint_path)
     load_param_into_net(net_for_pretraining, param_dict)
     model = Model(net_for_pretraining)
 
-    callback = SpanF1((use_crf.lower() == "true"), tag_to_index)
+    callback = SpanF1(tag_to_index)
         
     columns_list = ["input_ids", "input_mask", "token_type_id", "label_ids"]
     for data in dataset.create_dict_iterator(num_epochs=1):
@@ -124,8 +123,6 @@ def parse_args():
                         help="Eable train, default is false")
     parser.add_argument("--do_eval", type=str, default="false", choices=["true", "false"],
                         help="Eable eval, default is false")
-    parser.add_argument("--use_crf", type=str, default="false", choices=["true", "false"],
-                        help="Use crf, default is false")
     parser.add_argument("--number_labels", type=int, default=0, help='Number of NER labels, default is 0')
     parser.add_argument("--label_map_config", type=str, default="", help="Label map file path")
     parser.add_argument("--device_id", type=int, default=0, help="Device id, default is 0.")
@@ -175,7 +172,7 @@ def run_ner():
         if ernie_net_cfg.compute_type != mstype.float32:
             logger.warning('GPU only support fp32 temporarily, run with fp32.')
             ernie_net_cfg.compute_type = mstype.float32
-        if optimizer_cfg.optimizer == 'AdamWeightDecay' and args_opt.use_crf.lower() == "false":
+        if optimizer_cfg.optimizer == 'AdamWeightDecay':
             context.set_context(enable_graph_kernel=True)
     else:
         raise Exception("Target error, GPU or Ascend is supported.")
@@ -184,7 +181,6 @@ def run_ner():
     number_labels = args_opt.number_labels
     if args_opt.do_train.lower() == "true":
         netwithloss = ErnieNER(ernie_net_cfg, args_opt.train_batch_size, True, num_labels=number_labels,
-                              use_crf=(args_opt.use_crf.lower() == "true"),
                               tag_to_index=tag_to_index, dropout_prob=0.1)
         ds = create_finetune_dataset(batch_size=args_opt.train_batch_size,
                             repeat_count=1,
@@ -193,7 +189,7 @@ def run_ner():
         print("==============================================================")
         print("processor_name: {}".format(args_opt.device_target))
         print("test_name: ERNIE Finetune Training")
-        print("model_name: {}".format("ERNIE+MLP+CRF" if args_opt.use_crf.lower() == "true" else "ERNIE + MLP"))
+        print("model_name: {}".format("ERNIE + MLP"))
         print("batch_size: {}".format(args_opt.train_batch_size))
 
         do_train(args_opt.task_type, ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
@@ -211,7 +207,7 @@ def run_ner():
                             repeat_count=1,
                             data_file_path=args_opt.eval_data_file_path,
                             do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
-        do_eval(ds, ErnieNER, args_opt.use_crf, number_labels, assessment_method,
+        do_eval(ds, ErnieNER, number_labels, assessment_method,
                 args_opt.eval_data_file_path, load_finetune_checkpoint_path, args_opt.vocab_file_path,
                 args_opt.label_file_path, tag_to_index, args_opt.eval_batch_size)
 

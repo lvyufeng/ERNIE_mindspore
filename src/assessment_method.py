@@ -18,7 +18,6 @@ Bert evaluation assessment method script.
 '''
 import numpy as np
 from mindspore.nn.metrics import ConfusionMatrixMetric
-from .crf import postprocess
 
 class Accuracy():
     '''
@@ -39,11 +38,10 @@ class F1():
     '''
     calculate F1 score
     '''
-    def __init__(self, use_crf=False, num_labels=2, mode="Binary"):
+    def __init__(self, num_labels=2, mode="Binary"):
         self.TP = 0
         self.FP = 0
         self.FN = 0
-        self.use_crf = use_crf
         self.num_labels = num_labels
         self.mode = mode
         if self.mode.lower() not in ("binary", "multilabel"):
@@ -58,16 +56,10 @@ class F1():
         '''
         labels = labels.asnumpy()
         labels = np.reshape(labels, -1)
-        if self.use_crf:
-            backpointers, best_tag_id = logits
-            best_path = postprocess(backpointers, best_tag_id)
-            logit_id = []
-            for ele in best_path:
-                logit_id.extend(ele)
-        else:
-            logits = logits.asnumpy()
-            logit_id = np.argmax(logits, axis=-1)
-            logit_id = np.reshape(logit_id, -1)
+
+        logits = logits.asnumpy()
+        logit_id = np.argmax(logits, axis=-1)
+        logit_id = np.reshape(logit_id, -1)
 
         if self.mode.lower() == "binary":
             pos_eva = np.isin(logit_id, [i for i in range(1, self.num_labels)])
@@ -91,11 +83,10 @@ class SpanF1():
     '''
     calculate F1、precision and recall score in span manner for NER
     '''
-    def __init__(self, use_crf=False, label2id=None):
+    def __init__(self, label2id=None):
         self.TP = 0
         self.FP = 0
         self.FN = 0
-        self.use_crf = use_crf
         self.label2id = label2id
         if label2id is None:
             raise ValueError("label2id info should not be empty")
@@ -131,16 +122,10 @@ class SpanF1():
         '''
         labels = labels.asnumpy()
         labels = np.reshape(labels, -1)
-        if self.use_crf:
-            backpointers, best_tag_id = logits
-            best_path = postprocess(backpointers, best_tag_id)
-            logit_id = []
-            for ele in best_path:
-                logit_id.extend(ele)
-        else:
-            logits = logits.asnumpy()
-            logit_id = np.argmax(logits, axis=-1)
-            logit_id = np.reshape(logit_id, -1)
+
+        logits = logits.asnumpy()
+        logit_id = np.argmax(logits, axis=-1)
+        logit_id = np.reshape(logit_id, -1)
 
         label_spans = self.tag2span(labels)
         pred_spans = self.tag2span(logit_id)

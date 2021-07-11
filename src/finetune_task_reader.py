@@ -669,7 +669,7 @@ def main():
                         help="The maximum total input sequence length after WordPiece tokenization. "
                         "Sequences longer than this will be truncated, and sequences shorter "
                         "than this will be padded.")
-    parser.add_argument("--max_query_len", type=int, default=None,
+    parser.add_argument("--max_query_len", type=int, default=0,
                         help="The maximum total input query length after WordPiece tokenization.")
     parser.add_argument("--do_lower_case", type=bool, default=True,
                         help="Whether to lower case the input text. "
@@ -680,7 +680,7 @@ def main():
     parser.add_argument("--shard_num", type=int, default=0, help="output file shard number")
     parser.add_argument("--is_training", type=bool, default=False, help="Whether the processing dataset is training dataset.")
     args_opt = parser.parse_args()
-    if args_opt.max_query_len is None:
+    if args_opt.max_query_len == 0:
         reader = reader_dict[args_opt.task_type](
             vocab_path=args_opt.vocab_path,
             label_map_config=args_opt.label_map_config if have_label_map[args_opt.task_type] else None,

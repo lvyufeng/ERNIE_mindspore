@@ -17,7 +17,7 @@ if [ $# -ne 1 ]
 then
     echo "=============================================================================================================="
     echo "Please run the script as: "
-    echo "sh run_standalone_finetune.sh TASK_TYPE"
+    echo "sh run_standalone_finetune.sh [TASK_TYPE]"
     echo "for example: sh run_standalone_finetune.sh msra_ner"
     echo "TASK_TYPE including [msra_ner, chnsenticorp]"
     echo "=============================================================================================================="
@@ -27,7 +27,7 @@ fi
 mkdir -p ms_log
 mkdir -p save_models
 CUR_DIR=`pwd`
-MODEL_PATH=${CUR_DIR}/pretrain_models
+MODEL_PATH=${CUR_DIR}/pretrain_models/converted
 DATA_PATH=${CUR_DIR}/data
 SAVE_PATH=${CUR_DIR}/save_models
 export GLOG_log_dir=${CUR_DIR}/ms_log
@@ -70,4 +70,4 @@ python ${CUR_DIR}/${PY_NAME}.py \
     --save_finetune_checkpoint_path="${SAVE_PATH}" \
     --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
     --train_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_train.mindrecord" \
-    --eval_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_dev.mindrecord" > ${GLOG_log_dir}/train_${TASK_TYPE}_log.txt 2>&1 &
+    --eval_data_file_path="${DATA_PATH}/${TASK_TYPE}/${TASK_TYPE}_dev.mindrecord" > ${GLOG_log_dir}/${TASK_TYPE}_train_log.txt 2>&1 &
