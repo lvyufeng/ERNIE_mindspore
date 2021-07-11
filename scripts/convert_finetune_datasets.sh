@@ -89,7 +89,7 @@ MODEL_PATH=${CUR_DIR}/pretrain_models/ernie
 
 # ner task
 # train dataset
-python ${CUR_DIR}/src/task_reader.py  \
+python ${CUR_DIR}/src/finetune_task_reader.py  \
     --task_type=$TASK_TYPE \
     --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
@@ -103,7 +103,7 @@ python ${CUR_DIR}/src/task_reader.py  \
     --is_training=true
 
 # dev dataset
-python ${CUR_DIR}/src/task_reader.py  \
+python ${CUR_DIR}/src/finetune_task_reader.py  \
     --task_type=$TASK_TYPE \
     --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
@@ -117,7 +117,7 @@ python ${CUR_DIR}/src/task_reader.py  \
     --is_training=false
 
 # test dataset
-python ${CUR_DIR}/src/task_reader.py  \
+python ${CUR_DIR}/src/finetune_task_reader.py  \
     --task_type=$TASK_TYPE \
     --label_map_config="${DATASET_PATH}/label_map.json" \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
