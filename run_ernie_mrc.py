@@ -34,6 +34,8 @@ from src.ernie_for_finetune import ErnieMRCCell, ErnieMRC
 from src.dataset import create_mrc_dataset
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
+from src.mrc_get_predictions import write_predictions
+from src.mrc_postprocess import mrc_postprocess
 from mindspore.context import ParallelMode
 from mindspore.communication.management import init
 
@@ -139,6 +141,7 @@ def parse_args():
     parser.add_argument("--rank_id", type=int, default=0, help="Rank id, default: 0.")
     parser.add_argument("--epoch_num", type=int, default=3, help="Epoch number, default is 3.")
     parser.add_argument("--number_labels", type=int, default=3, help="The number of class, default is 3.")
+    parser.add_argument("--label_map_config", type=str, default="", help="Label map file path")
     parser.add_argument("--train_data_shuffle", type=str, default="true", choices=["true", "false"],
                         help="Enable train data shuffle, default is true")
     parser.add_argument("--eval_data_shuffle", type=str, default="false", choices=["true", "false"],
@@ -154,11 +157,13 @@ def parse_args():
                         help="Data path, it is better to use absolute path")
     parser.add_argument("--eval_data_file_path", type=str, default="",
                         help="Data path, it is better to use absolute path")
+    parser.add_argument("--eval_json_path", type=str, default="",
+                        help="Json data path, it is better to use absolute path")
+    parser.add_argument("--vocab_path", type=str, default="", help="vocab file")
     parser.add_argument('--data_url', type=str, default=None, help='Dataset path')
     parser.add_argument('--train_url', type=str, default=None, help='Train output path')
     parser.add_argument('--modelarts', type=str, default='false',
                         help='train on modelarts or not, default is false')
-    parser.add_argument("--is_training", type=bool, default=False, help='Whether is training.')
     args_opt = parser.parse_args()
 
     return args_opt
@@ -215,7 +220,7 @@ def run_mrc():
         raise Exception("Target error, GPU or Ascend is supported.")
 
     if args_opt.do_train.lower() == "true":
-        netwithloss = ErnieMRC(ernie_net_cfg, args_opt.is_training, num_labels=args_opt.number_labels, dropout_prob=0.1)
+        netwithloss = ErnieMRC(ernie_net_cfg, True, num_labels=args_opt.number_labels, dropout_prob=0.1)
         ds = create_mrc_dataset(batch_size=args_opt.train_batch_size,
                                 repeat_count=1,
                                 data_file_path=args_opt.train_data_file_path,
@@ -239,11 +244,24 @@ def run_mrc():
                                                            ds.get_dataset_size(), epoch_num, args_opt.task_type)
 
     if args_opt.do_eval.lower() == "true":
+        from src.finetune_task_reader import MRCReader
         ds = create_mrc_dataset(batch_size=args_opt.eval_batch_size,
-                            repeat_count=1,
-                            data_file_path=args_opt.eval_data_file_path,
-                            do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
-        do_eval(ds, load_finetune_checkpoint_path, args_opt.eval_batch_size, ernie_net_cfg)
+                                repeat_count=1,
+                                data_file_path=args_opt.eval_data_file_path,
+                                do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"),
+                                is_training=False)
+        outputs = do_eval(ds, load_finetune_checkpoint_path, args_opt.eval_batch_size, ernie_net_cfg)
+
+        reader = MRCReader(
+            vocab_path=args_opt.vocab_path,
+            max_seq_len=ernie_net_cfg.seq_length,
+            do_lower_case=True,
+            max_query_len=64,
+        )
+        eval_examples = reader.read_examples(args_opt.eval_json_path, False)
+        eval_features = reader.get_example_features(args_opt.eval_json_path, False)
+        all_predictions = write_predictions(eval_examples, eval_features, outputs, 20, 30, True)
+        mrc_postprocess(args_opt.eval_json_path, all_predictions, output_metrics="output.json")
 
 if __name__ == "__main__":
     run_mrc()

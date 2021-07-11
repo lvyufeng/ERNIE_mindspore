@@ -55,42 +55,42 @@ case $TASK_TYPE in
     MAX_QUERY_LEN=0
     SHARD_NUM=1
     FILE_TYPE="tsv"
-    HAVE_TEST=true
+    HAVE_TEST="true"
     ;;
   "chnsenticorp")
     MAX_SEQ_LEN=256
     MAX_QUERY_LEN=0
     SHARD_NUM=1
     FILE_TYPE="tsv"
-    HAVE_TEST=true
+    HAVE_TEST="true"
     ;;
   "xnli")
     MAX_SEQ_LEN=512
     MAX_QUERY_LEN=0
     SHARD_NUM=10
     FILE_TYPE="tsv"
-    HAVE_TEST=true
+    HAVE_TEST="true"
     ;;
   "dbqa")
     MAX_SEQ_LEN=512
     MAX_QUERY_LEN=0
     SHARD_NUM=10
     FILE_TYPE="tsv"
-    HAVE_TEST=true
+    HAVE_TEST="true"
     ;;
   "drcd")
     MAX_SEQ_LEN=512
     MAX_QUERY_LEN=64
     SHARD_NUM=10
     FILE_TYPE="json"
-    HAVE_TEST=true
+    HAVE_TEST="true"
     ;;
   "cmrc")
     MAX_SEQ_LEN=512
     MAX_QUERY_LEN=64
     SHARD_NUM=10
     FILE_TYPE="json"
-    HAVE_TEST=false
+    HAVE_TEST="false"
     ;;
   esac
 
@@ -110,7 +110,7 @@ python ${CUR_DIR}/src/finetune_task_reader.py  \
     --input_file="${DATASET_PATH}/train.${FILE_TYPE}" \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_train.mindrecord" \
     --shard_num=$SHARD_NUM \
-    --is_training=true
+    --is_training="true"
 
 # dev dataset
 python ${CUR_DIR}/src/finetune_task_reader.py  \
@@ -124,21 +124,21 @@ python ${CUR_DIR}/src/finetune_task_reader.py  \
     --input_file="${DATASET_PATH}/dev.${FILE_TYPE}" \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_dev.mindrecord" \
     --shard_num=1 \
-    --is_training=false
+    --is_training="false"
 
 # test dataset
-if [ ${HAVE_TEST} ]
+if [ ${HAVE_TEST} = "true" ]
 then
-python ${CUR_DIR}/src/finetune_task_reader.py  \
-    --task_type=$TASK_TYPE \
-    --label_map_config="${DATASET_PATH}/label_map.json" \
-    --vocab_path="${MODEL_PATH}/vocab.txt" \
-    --max_seq_len=$MAX_SEQ_LEN \
-    --max_query_len=$MAX_QUERY_LEN \
-    --do_lower_case="true" \
-    --random_seed=1 \
-    --input_file="${DATASET_PATH}/test.${FILE_TYPE}" \
-    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_test.mindrecord" \
-    --shard_num=1 \
-    --is_training=false \
+  python ${CUR_DIR}/src/finetune_task_reader.py  \
+      --task_type=$TASK_TYPE \
+      --label_map_config="${DATASET_PATH}/label_map.json" \
+      --vocab_path="${MODEL_PATH}/vocab.txt" \
+      --max_seq_len=$MAX_SEQ_LEN \
+      --max_query_len=$MAX_QUERY_LEN \
+      --do_lower_case="true" \
+      --random_seed=1 \
+      --input_file="${DATASET_PATH}/test.${FILE_TYPE}" \
+      --output_file="${OUTPUT_PATH}/${TASK_TYPE}_test.mindrecord" \
+      --shard_num=1 \
+      --is_training="false"
 fi

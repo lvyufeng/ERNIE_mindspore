@@ -1,8 +1,6 @@
 
 # 目录
 
-[View English](./README.md)
-
 <!-- TOC -->
 
 - [目录](#目录)
@@ -24,20 +22,19 @@
             - [Ascend处理器上运行](#ascend处理器上运行)
         - [分布式训练](#分布式训练)
             - [Ascend处理器上运行](#ascend处理器上运行-1)
-    - [评估过程](#评估过程)
+    - [微调过程](#微调过程)
         - [用法](#用法-1)
-            - [Ascend处理器上运行后评估cola数据集](#ascend处理器上运行后评估cola数据集)
-            - [Ascend处理器上运行后评估cluener数据集](#ascend处理器上运行后评估cluener数据集)
-            - [Ascend处理器上运行后评估msra数据集](#ascend处理器上运行后评估msra数据集)
-            - [Ascend处理器上运行后评估squad v1.1数据集](#ascend处理器上运行后评估squad-v11数据集)
+            - [迁移Paddle预训练权重](#迁移paddle预训练权重)
+            - [Ascend处理器上运行单卡微调](#ascend处理器上运行单卡微调)
+            - [Ascend处理器上单机多卡微调](#ascend处理器上单机多卡微调)
+            - [Ascend处理器上运行微调后的模型评估](#ascend处理器上运行微调后的模型评估)
     - [导出mindir模型](#导出mindir模型)
     - [推理过程](#推理过程)
         - [用法](#用法-2)
         - [结果](#结果-2)
     - [模型描述](#模型描述)
-    - [性能](#性能)
-        - [预训练性能](#预训练性能)
-            - [推理性能](#推理性能)
+    - [精度与性能](#精度与性能)
+        - [推理性能](#推理性能)
 - [随机情况说明](#随机情况说明)
 - [ModelZoo主页](#modelzoo主页)
 
@@ -298,7 +295,7 @@ Parameters for optimizer:
     momentum                        平均移动动量
 ```
 
-## 训练过程
+## 预训练过程
 
 ### 用法
 
@@ -329,7 +326,7 @@ epoch: 0.0, current epoch percent: 0.000, step: 2, outputs are (Tensor(shape=[1]
 > ```bash
 > export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 > ```
-
+<!-- 
 ### 分布式训练
 
 #### Ascend处理器上运行
@@ -350,35 +347,67 @@ epoch: 0.0, current epoch percent: 0.002, step: 200, outputs are (Tensor(shape=[
 ...
 ```
 
-> **注意**训练过程中会根据device_num和处理器总数绑定处理器内核。如果您不希望预训练中绑定处理器内核，请在`scripts/ascend_distributed_launcher/get_distribute_pretrain_cmd.py`中移除`taskset`相关操作。
+> **注意**训练过程中会根据device_num和处理器总数绑定处理器内核。如果您不希望预训练中绑定处理器内核，请在`scripts/ascend_distributed_launcher/get_distribute_pretrain_cmd.py`中移除`taskset`相关操作。 -->
 
-## 评估过程
+## 微调过程
 
 ### 用法
 
-#### Ascend处理器上运行后评估cola数据集
+#### 迁移Paddle预训练权重
 
-运行以下命令前，确保已设置加载与训练检查点路径。请将检查点路径设置为绝对全路径，例如，/username/pretrain/checkpoint_100_300.ckpt。
+如果没有进行预训练获得模型权重，可以使用百度开源的ERNIE权重，将其转换为MindSpore支持的Checkpoint直接加载进行下游任务微调。
+
+首先下载百度开源ERNIE权重：
 
 ```bash
-bash scripts/run_classifier.sh
+bash scripts/download_pretrained_models.sh
 ```
 
-以上命令后台运行，您可以在classfier_log.txt中查看训练日志。
+下载完成后执行权重迁移脚本：
+
+```bash
+bash scripts/migrate_pretrained_models.sh
+```
+
+> **注意**： 权重迁移需要同时安装MindSpore和Paddle，由于Paddle不支持Arm环境，本步骤需要在x86环境下运行。权重迁移仅需要两个框架的CPU版本即可完成，可本地完成后上传转换后的Checkpoint使用。
+
+#### Ascend处理器上运行单卡微调
+
+运行以下命令前，确保已设置从Paddle转换或自行训练得到的ERNIE Base的checkpoint。请将检查点路径设置为绝对全路径，例如，/username/pretrain/checkpoint_100_300.ckpt。
+
+```bash
+bash scripts/run_standalone_finetune.sh [TASK_TYPE]
+# for example: sh run_standalone_finetune.sh msra_ner
+# TASK_TYPE including [msra_ner, chnsenticorp]
+```
+
+以上命令后台运行，您可以在{task_type}_train_log.txt中查看训练日志。
+
+#### Ascend处理器上单机多卡微调
+
+```bash
+bash scripts/run_distribute_finetune.sh [RANK_TABLE_FILE] [TASK_TYPE]
+# for example: sh run_distribute_finetune.sh rank_table.json xnli
+# TASK_TYPE including [xnli, dbqa, drcd]
+```
+
+以上命令后台运行，您可以在{task_type}_train_log.txt中查看训练日志。
+
+> **注意：** `rank_table.json`可以通过`/etc/hccn.conf`获取加速卡IP进行配置。
+
+#### Ascend处理器上运行微调后的模型评估
+
+```bash
+bash scripts/run_finetune_eval.sh [TASK_TYPE] 
+# for example: sh run_finetune_eval.sh msra_ner
+# TASK_TYPE including [msra_ner, chnsenticorp, xnli, dbqa, ]
+```
 
 如您选择准确性作为评估方法，可得到如下结果：
 
 ```text
 acc_num XXX, total_num XXX, accuracy 0.588986
 ```
-
-#### Ascend处理器上运行后评估cluener数据集
-
-```bash
-bash scripts/run_ner.sh
-```
-
-以上命令后台运行，您可以在ner_log.txt中查看训练日志。
 
 如您选择F1作为评估方法，可得到如下结果：
 
@@ -388,47 +417,15 @@ Recall 0.948683
 F1 0.920507
 ```
 
-#### Ascend处理器上运行后评估msra数据集
-
-您可以采用如下方式，先将MSRA数据集的原始格式在预处理流程中转换为mindrecord格式以提升性能 (请注意label2id_file文件中的标注名称应与数据集msra_dataset.xml文件中的标注名保持一致)：
-
-```python
-python src/finetune_data_preprocess.py --data_dir=/path/msra_dataset.xml --vocab_file=/path/vacab_file --save_path=/path/msra_dataset.mindrecord --label2id=/path/label2id_file --max_seq_len=seq_len --class_filter="NAMEX" --split_begin=0.0 --split_end=1.0
-```
-
-此后，您可以进行微调再训练和推理流程，
-
-```bash
-bash scripts/run_ner.sh
-```
-
-以上命令后台运行，您可以在ner_log.txt中查看训练日志。
-如您选择MF1（多标签的F1得分）作为评估方法，在微调训练10个epoch之后进行推理，可得到如下结果：
-
-```text
-F1 0.931243
-```
-
-#### Ascend处理器上运行后评估squad v1.1数据集
-
-```bash
-bash scripts/squad.sh
-```
-
-以上命令后台运行，您可以在bant_log.txt中查看训练日志。
-结果如下：
-
-```text
-{"exact_match": 80.3878923040233284, "f1": 87.6902384023850329}
-```
-
 ## 导出mindir模型
 
-```shell
-python export.py --ckpt_file [CKPT_PATH] --file_name [FILE_NAME] --file_format [FILE_FORMAT]
+```bash
+bash export.sh [CKPT_FILE] [EXPORT_PATH] [TASK_TYPE]
+# for example: sh sh export.sh /path/ckpt.ckpt /path/ msra_ner
+# TASK_TYPE including [msra_ner, chnsenticorp]
 ```
 
-参数`ckpt_file` 是必需的，`EXPORT_FORMAT` 必须在 ["AIR", "MINDIR"]中进行选择。
+其中，参数`CKPT_FILE` 是必需的；`EXPORT_FORMAT` 可以在 ["AIR", "MINDIR"]中进行选择后修改`export.sh`, 默认为"MINDIR"。
 
 ## 推理过程
 
@@ -455,7 +452,7 @@ F1 0.931243
 
 ## 模型描述
 
-## 性能
+## 精度与性能
 
 #### 推理性能
 
@@ -464,8 +461,8 @@ F1 0.931243
 
 | 参数                 | Ascend+Mindspore                        | GPU+Paddle                       |
 | -------------------------- | ----------------------------- | ------------------------- |
-| 资源                   | Ascend 910；系统 Euler2.8                    | NV SMX2 V100-32G          |
-| 上传日期              | 2021-06-23                    | 2021-06-23                |
+| 资源                        | Ascend 910；系统 Euler2.8                    | NV SMX2 V100-32G          |
+| 上传日期                    | 2021-06-23                    | 2021-06-23                |
 | 数据集 | MSRA NER | MSRA NER |
 | batch_size          | 32（单卡）                        | 32（单卡）                   |
 | Dev准确率 | 95.48% | 95.0% |
@@ -474,6 +471,61 @@ F1 0.931243
 | 推理模型 | 1.2G（.ckpt文件）              |                           |
 
 ##### 情感分析任务
+
+| 参数                 | Ascend+Mindspore                        | GPU+Paddle                       |
+| -------------------------- | ----------------------------- | ------------------------- |
+| 资源                   | Ascend 910；系统 Euler2.8                    | NV SMX2 V100-32G          |
+| 上传日期              | 2021-06-23                    | 2021-06-23                |
+| 数据集 | ChnSentiCorp | ChnSentiCorp |
+| batch_size          | 32（单卡）                        | 32（单卡）                   |
+| Dev准确率 | 94.83% | 95.2% |
+| Test准确率 | 96.08% | 95.4% |
+| Finetune速度                      | 57.50毫秒/步                              |                           |
+| 推理模型 | 1.2G（.ckpt文件）              |                           |
+
+##### 自然语言接口
+
+| 参数                 | Ascend+Mindspore                        | GPU+Paddle                       |
+| -------------------------- | ----------------------------- | ------------------------- |
+| 资源                   | Ascend 910；系统 Euler2.8                    | NV SMX2 V100-32G          |
+| 上传日期              | 2021-06-23                    | 2021-06-23                |
+| 数据集 | XNLI | XNLI |
+| batch_size          | 32（单卡）                        | 32（单卡）                   |
+| Dev准确率 | 79.1% | 79.9% |
+| Test准确率 | 78.4% | 78.4% |
+| Finetune速度                      | 495.71毫秒/步                              |                           |
+| 推理模型 | 1.2G（.ckpt文件）              |                           |
+
+##### 问答
+
+| 参数                 | Ascend+Mindspore                        | GPU+Paddle                       |
+| -------------------------- | ----------------------------- | ------------------------- |
+| 资源                   | Ascend 910；系统 Euler2.8                    | NV SMX2 V100-32G          |
+| 上传日期              | 2021-06-23                    | 2021-06-23                |
+| 数据集 | DBQA | DBQA |
+| batch_size          | 32（单卡）                        | 32（单卡）                   |
+| Dev准确率 | 80.5% | 82.3% |
+| Test准确率 | 82.6% | 82.7% |
+| Finetune速度                      | 137.08毫秒/步                              |                           |
+| 推理模型 | 1.2G（.ckpt文件）              |                           |
+
+##### 阅读理解
+
+DRCD
+
+| 参数                 | Ascend+Mindspore                        | GPU+Paddle                       |
+| -------------------------- | ----------------------------- | ------------------------- |
+| 资源                   | Ascend 910；系统 Euler2.8                    | NV SMX2 V100-32G          |
+| 上传日期              | 2021-06-23                    | 2021-06-23                |
+| 数据集 | ChnSentiCorp | ChnSentiCorp |
+| batch_size          | 32（单卡）                        | 32（单卡）                   |
+| Dev准确率 | 94.83% | 95.2% |
+| Test准确率 | 96.08% | 95.4% |
+| Finetune速度                      | 57.50毫秒/步                              |                           |
+| 推理模型 | 1.2G（.ckpt文件）              |                           |
+
+
+CMRC2018
 
 | 参数                 | Ascend+Mindspore                        | GPU+Paddle                       |
 | -------------------------- | ----------------------------- | ------------------------- |

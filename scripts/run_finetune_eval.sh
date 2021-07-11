@@ -17,9 +17,9 @@ if [ $# -ne 1 ]
 then
     echo "=============================================================================================================="
     echo "Please run the script as: "
-    echo "sh run_finetune_eval.sh TASK_TYPE"
+    echo "sh run_finetune_eval.sh [TASK_TYPE]"
     echo "for example: sh run_finetune_eval.sh msra_ner"
-    echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli]"
+    echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli, dbqa, drcd]"
     echo "=============================================================================================================="
 exit 1
 fi
@@ -27,7 +27,7 @@ fi
 mkdir -p ms_log
 mkdir -p save_models
 CUR_DIR=`pwd`
-MODEL_PATH=${CUR_DIR}/pretrain_models
+MODEL_PATH=${CUR_DIR}/pretrain_models/converted
 DATA_PATH=${CUR_DIR}/data
 SAVE_PATH=${CUR_DIR}/save_models
 export GLOG_log_dir=${CUR_DIR}/ms_log
@@ -43,6 +43,7 @@ case $TASK_TYPE in
     LABEL_MAP="${DATA_PATH}/msra_ner/label_map.json"
     CKPT_PATH="${SAVE_PATH}/msra_ner-6_1304.ckpt" \
     EVAL_DATA_PATH="${DATA_PATH}/msra_ner/msra_ner_test.mindrecord"
+    EVAL_JSON_PATH=""
     ;;
   "chnsenticorp")
     PY_NAME=run_ernie_classifier
@@ -51,14 +52,16 @@ case $TASK_TYPE in
     LABEL_MAP=""
     CKPT_PATH="${SAVE_PATH}/chnsenticorp-0-10_400.ckpt" \
     EVAL_DATA_PATH="${DATA_PATH}/chnsenticorp/chnsenticorp_test.mindrecord"
+    EVAL_JSON_PATH=""
     ;;
   "xnli")
     PY_NAME=run_ernie_classifier
     NUM_LABELS=3
     EVAL_BATCH_SIZE=32
     LABEL_MAP=""
-    CKPT_PATH="${SAVE_PATH}/xnli-0_1-3_3068.ckpt" \
+    CKPT_PATH="${SAVE_PATH}/xnli-0-3_767.ckpt" \
     EVAL_DATA_PATH="${DATA_PATH}/xnli/xnli_test.mindrecord"
+    EVAL_JSON_PATH=""
     ;;
   "dbqa")
     PY_NAME=run_ernie_classifier
@@ -67,6 +70,16 @@ case $TASK_TYPE in
     LABEL_MAP=""
     CKPT_PATH="${SAVE_PATH}/dbqa-0-3_2842.ckpt" \
     EVAL_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_test.mindrecord"
+    EVAL_JSON_PATH=""
+    ;;
+  "drcd")
+    PY_NAME=run_ernie_mrc
+    NUM_LABELS=2
+    EVAL_BATCH_SIZE=32
+    LABEL_MAP=""
+    CKPT_PATH="${SAVE_PATH}/drcd-0-3_300.ckpt" \
+    EVAL_DATA_PATH="${DATA_PATH}/drcd/drcd_test.mindrecord"
+    EVAL_JSON_PATH="${DATA_PATH}/drcd/test.json"
     ;;
   esac
 
@@ -74,6 +87,7 @@ python ${CUR_DIR}/${PY_NAME}.py \
     --task_type=${TASK_TYPE} \
     --device_target="Ascend" \
     --label_map_config=${LABEL_MAP} \
+    --vocab_path="${MODEL_PATH}/vocab.txt" \
     --do_train="false" \
     --do_eval="true" \
     --device_id=$DEVICE_ID \
@@ -82,4 +96,5 @@ python ${CUR_DIR}/${PY_NAME}.py \
     --eval_data_shuffle="false" \
     --eval_batch_size=${EVAL_BATCH_SIZE} \
     --load_finetune_checkpoint_path=${CKPT_PATH} \
-    --eval_data_file_path=${EVAL_DATA_PATH} > ${GLOG_log_dir}/${TASK_TYPE}_eval_log.txt 2>&1 &
+    --eval_data_file_path=${EVAL_DATA_PATH} \
+    --eval_json_path=${EVAL_JSON_PATH} > ${GLOG_log_dir}/${TASK_TYPE}_eval_log.txt 2>&1 &

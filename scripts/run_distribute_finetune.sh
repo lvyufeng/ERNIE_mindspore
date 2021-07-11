@@ -3,7 +3,7 @@ then
     echo "=============================================================================================================="
     echo "Please run the script as: "
     echo "sh run_distribute_finetune.sh [RANK_TABLE_FILE] [TASK_TYPE]"
-    echo "for example: sh run_standalone_finetune.sh xnli"
+    echo "for example: sh run_distribute_finetune.sh rank_table.json xnli"
     echo "TASK_TYPE including [xnli, dbqa, drcd]"
     echo "=============================================================================================================="
 exit 1
@@ -45,10 +45,11 @@ case $TASK_TYPE in
     PY_NAME=run_ernie_classifier
     NUM_LABELS=3
     NUM_EPOCH=3
-    TRAIN_BATCH_SIZE=32
-    EVAL_BATCH_SIZE=32
+    TRAIN_BATCH_SIZE=64
+    EVAL_BATCH_SIZE=64
     TRAIN_DATA_PATH="${DATA_PATH}/xnli/xnli_train.mindrecord0"
     EVAL_DATA_PATH="${DATA_PATH}/xnli/xnli_dev.mindrecord"
+    EVAL_JSON_PATH=""
     ;;
   "dbqa")
     PY_NAME=run_ernie_classifier
@@ -58,6 +59,7 @@ case $TASK_TYPE in
     EVAL_BATCH_SIZE=8
     TRAIN_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_train.mindrecord0"
     EVAL_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_dev.mindrecord"    
+    EVAL_JSON_PATH="${DATA_PATH}/nlpcc-dbqa/dev.json"
     ;;
   "drcd")
     PY_NAME=run_ernie_mrc
@@ -66,7 +68,8 @@ case $TASK_TYPE in
     TRAIN_BATCH_SIZE=16
     EVAL_BATCH_SIZE=16
     TRAIN_DATA_PATH="${DATA_PATH}/drcd/drcd_train.mindrecord0"
-    EVAL_DATA_PATH="${DATA_PATH}/drcd/drcd_dev.mindrecord"    
+    EVAL_DATA_PATH="${DATA_PATH}/drcd/drcd_dev.mindrecord"
+    EVAL_JSON_PATH="${DATA_PATH}/drcd/dev.json"  
     ;;
   esac
 
@@ -99,5 +102,5 @@ do
         --load_pretrain_checkpoint_path="${MODEL_PATH}/ernie.ckpt" \
         --train_data_file_path=$TRAIN_DATA_PATH \
         --eval_data_file_path=$EVAL_DATA_PATH \
-        --is_training=true > ${GLOG_log_dir}/${TASK_TYPE}_train_log_$i.txt 2>&1 &
+        --eval_json_path=$EVAL_JSON_PATH > ${GLOG_log_dir}/${TASK_TYPE}_train_log_$i.txt 2>&1 &
 done

@@ -483,7 +483,8 @@ class MRCReader(BaseReader):
         unique_id = 1000000000
         Record = namedtuple(
                             'Record',
-                            ['input_ids', 'input_mask', 'token_type_id', 'start_position', 'end_position', 'unique_id'])
+                            ['input_ids', 'input_mask', 'token_type_id', 'start_position', 'end_position', 'unique_id',
+                            'example_index', 'doc_span_index', 'tokens', 'token_to_orig_map', 'token_is_max_context'])
 
         for index, example in enumerate(examples):
             query_tokens = tokenizer.tokenize(example.question_text)
@@ -586,7 +587,13 @@ class MRCReader(BaseReader):
                     token_type_id=token_type_id,
                     start_position=start_position,
                     end_position=end_position,
-                    unique_id=unique_id)
+                    unique_id=unique_id, 
+                    example_index=index,
+                    doc_span_index=doc_span_index,
+                    tokens=tokens,
+                    token_to_orig_map=token_to_orig_map,
+                    token_is_max_context=token_is_max_context,
+                    )
 
                 records.append(record)
                 unique_id += 1
@@ -641,6 +648,14 @@ class MRCReader(BaseReader):
         writer.write_raw_data(data)
         writer.commit()
 
+    def get_example_features(self, input_file, is_training):
+        examples = self._read_json(input_file, is_training)
+        records = self._convert_example_to_record(examples, self.max_seq_len, self.tokenizer, is_training)
+        return records
+
+    def read_examples(self, input_file, is_training):
+        examples = self._read_json(input_file, is_training)
+        return examples
 
 reader_dict = {
     'chnsenticorp': ClassifyReader,
@@ -678,8 +693,9 @@ def main():
     parser.add_argument("--input_file", type=str, default="", help="raw data file")
     parser.add_argument("--output_file", type=str, default="", help="minddata file")
     parser.add_argument("--shard_num", type=int, default=0, help="output file shard number")
-    parser.add_argument("--is_training", type=bool, default=False, help="Whether the processing dataset is training dataset.")
+    parser.add_argument("--is_training", type=str, default="false", help="Whether the processing dataset is training dataset.")
     args_opt = parser.parse_args()
+
     if args_opt.max_query_len == 0:
         reader = reader_dict[args_opt.task_type](
             vocab_path=args_opt.vocab_path,
@@ -701,7 +717,7 @@ def main():
     reader.file_based_convert_examples_to_features(input_file=args_opt.input_file,
                                                    output_file=args_opt.output_file,
                                                    shard_num=args_opt.shard_num,
-                                                   is_training=args_opt.is_training)
+                                                   is_training=True if args_opt.is_training == 'true' else False)
                 
 if __name__ == "__main__":
     main()

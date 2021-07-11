@@ -147,3 +147,4 @@ time_result/
 
 *.zip
 rank_table*.json
+output.json

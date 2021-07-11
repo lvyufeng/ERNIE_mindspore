@@ -77,20 +77,32 @@ def create_mrc_dataset(batch_size=1,
                         data_file_path=None,
                         rank_size=1,
                         rank_id=0,
-                        do_shuffle=True):
+                        do_shuffle=True,
+                        is_training=True):
     """create finetune or evaluation dataset"""
     type_cast_op = C.TypeCast(mstype.int32)
-    data_set = ds.MindDataset(data_file_path,
-                              columns_list=["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"],
-                              shuffle=do_shuffle,
-                              num_shards=rank_size,
-                              shard_id=rank_id)
-    data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
-    data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
-    data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
-    data_set = data_set.map(operations=type_cast_op, input_columns="start_position")
-    data_set = data_set.map(operations=type_cast_op, input_columns="end_position")
-    data_set = data_set.map(operations=type_cast_op, input_columns="unique_id")
+    if is_training:
+        data_set = ds.MindDataset(data_file_path,
+                                columns_list=["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"],
+                                shuffle=do_shuffle,
+                                num_shards=rank_size,
+                                shard_id=rank_id)
+        data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
+        data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
+        data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
+        data_set = data_set.map(operations=type_cast_op, input_columns="start_position")
+        data_set = data_set.map(operations=type_cast_op, input_columns="end_position")
+        data_set = data_set.map(operations=type_cast_op, input_columns="unique_id")
+    else:
+        data_set = ds.MindDataset(data_file_path,
+                                columns_list=["input_ids", "input_mask", "token_type_id", "unique_id"],
+                                shuffle=do_shuffle,
+                                num_shards=rank_size,
+                                shard_id=rank_id)
+        data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
+        data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
+        data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
+        data_set = data_set.map(operations=type_cast_op, input_columns="unique_id")
     data_set = data_set.repeat(repeat_count)
     # apply batch operations
     data_set = data_set.batch(batch_size, drop_remainder=False)

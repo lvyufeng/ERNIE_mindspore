@@ -98,17 +98,23 @@ def do_eval(dataset=None, network=None, num_class=41, assessment_method="accurac
     model = Model(net_for_pretraining)
 
     callback = SpanF1(tag_to_index)
-        
+
+    evaluate_times = []  
     columns_list = ["input_ids", "input_mask", "token_type_id", "label_ids"]
     for data in dataset.create_dict_iterator(num_epochs=1):
         input_data = []
         for i in columns_list:
             input_data.append(data[i])
         input_ids, input_mask, token_type_id, label_ids = input_data
+        time_begin = time.time()
         logits = model.predict(input_ids, input_mask, token_type_id, label_ids)
+        time_end = time.time()
+        evaluate_times.append(time_end - time_begin)
         callback.update(logits, label_ids)
     print("==============================================================")
     eval_result_print(assessment_method, callback)
+    print("(w/o first and last) elapsed time: {}, per step time : {}".format(
+    sum(evaluate_times), sum(evaluate_times)/len(evaluate_times)))
     print("==============================================================")
 
 
@@ -142,6 +148,9 @@ def parse_args():
                         help="Data path, it is better to use absolute path")
     parser.add_argument("--eval_data_file_path", type=str, default="",
                         help="Data path, it is better to use absolute path")
+    parser.add_argument("--eval_json_path", type=str, default="",
+                        help="Json data path, it is better to use absolute path")
+    parser.add_argument("--vocab_path", type=str, default="", help="vocab file")
     parser.add_argument("--dataset_format", type=str, default="mindrecord", choices=["mindrecord", "tfrecord"],
                         help="Dataset format, support mindrecord or tfrecord")
     parser.add_argument("--schema_file_path", type=str, default="",

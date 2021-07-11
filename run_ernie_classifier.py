@@ -90,10 +90,7 @@ def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path=""
     if assessment_method == 'accuracy':
         callback = Accuracy()
     elif assessment_method == 'f1':
-        if number_labels == 2:
-            callback = F1(number_labels)
-        else:
-            callback = F1(number_labels, 'multilabel')
+        callback = F1(number_labels)
     else:
         raise ValueError("Unsupported assessment method.")
 
@@ -111,6 +108,8 @@ def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path=""
         callback.update(logits, label_ids)
     print("==============================================================")
     eval_result_print(assessment_method, callback)
+    print("(w/o first and last) elapsed time: {}, per step time : {}".format(
+        sum(evaluate_times), sum(evaluate_times)/len(evaluate_times)))    
     print("==============================================================")
 
 def eval_result_print(assessment_method="accuracy", callback=None):
@@ -158,11 +157,13 @@ def run_classifier():
                         help="Data path, it is better to use absolute path")
     parser.add_argument("--eval_data_file_path", type=str, default="",
                         help="Data path, it is better to use absolute path")
+    parser.add_argument("--eval_json_path", type=str, default="",
+                        help="Json data path, it is better to use absolute path")
+    parser.add_argument("--vocab_path", type=str, default="", help="vocab file")
     parser.add_argument('--data_url', type=str, default=None, help='Dataset path')
     parser.add_argument('--train_url', type=str, default=None, help='Train output path')
     parser.add_argument('--modelarts', type=str, default='false',
                         help='train on modelarts or not, default is false')
-    parser.add_argument("--is_training", type=bool, default=False, help='Whether is training.')
     args_opt = parser.parse_args()
 
     epoch_num = args_opt.epoch_num
