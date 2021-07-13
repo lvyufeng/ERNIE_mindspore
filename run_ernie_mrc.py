@@ -260,8 +260,8 @@ def run_mrc():
         )
         eval_examples = reader.read_examples(args_opt.eval_json_path, False)
         eval_features = reader.get_example_features(args_opt.eval_json_path, False)
-        all_predictions = write_predictions(eval_examples, eval_features, outputs, 20, 30, True)
-        mrc_postprocess(args_opt.eval_json_path, all_predictions, output_metrics="output.json")
+        all_predictions = write_predictions(eval_examples, eval_features, outputs, 20, 100, True)
+        mrc_postprocess(args_opt.eval_json_path, all_predictions)
 
 if __name__ == "__main__":
     run_mrc()

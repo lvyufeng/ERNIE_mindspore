@@ -29,8 +29,6 @@ def get_prelim_predictions(features, unique_id_to_result, n_best_size, max_answe
     prelim_predictions = []
     # keep track of the minimum score of null start+end of position 0
     for (feature_index, feature) in enumerate(features):
-        if feature.unique_id not in unique_id_to_result:
-            continue
         result = unique_id_to_result[feature.unique_id]
         start_indexes = _get_best_indexes(result.start_logits, n_best_size)
         end_indexes = _get_best_indexes(result.end_logits, n_best_size)
@@ -95,7 +93,7 @@ def get_nbest(prelim_predictions, features, example, n_best_size, do_lower_case)
             # Clean whitespace
             tok_text = tok_text.strip()
             tok_text = " ".join(tok_text.split())
-            orig_text = " ".join(orig_tokens)
+            orig_text = "".join(orig_tokens)
             final_text = get_final_text(tok_text, orig_text, do_lower_case)
             if final_text in seen_predictions:
                 continue
@@ -137,12 +135,8 @@ def get_predictions(all_examples, all_features, all_results, n_best_size, max_an
         nbest = get_nbest(prelim_predictions, features, example, n_best_size, do_lower_case)
 
         total_scores = []
-        best_non_null_entry = None
         for entry in nbest:
             total_scores.append(entry.start_logit + entry.end_logit)
-            if not best_non_null_entry:
-                if entry.text:
-                    best_non_null_entry = entry
 
         probs = _compute_softmax(total_scores)
 
@@ -158,6 +152,7 @@ def get_predictions(all_examples, all_features, all_results, n_best_size, max_an
         assert len(nbest_json) >= 1
 
         all_predictions[example.qas_id] = nbest_json[0]["text"]
+
     return all_predictions
 
 

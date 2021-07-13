@@ -244,8 +244,8 @@ class ClassifyReader(BaseReader):
         writer.add_schema(nlp_schema, "proprocessed classification dataset")
         data = []
         for index, example in enumerate(examples):
-            if index % 10000 == 0:
-                logging.info("Writing example %d of %d" % (index, len(examples)))
+            if index % 1000 == 0:
+                print("Writing example %d of %d" % (index, len(examples)))
             record = self._convert_example_to_record(example, self.max_seq_len, self.tokenizer)
             sample = {
                 "input_ids": np.array(record.input_ids, dtype=np.int64),
@@ -334,8 +334,8 @@ class SequenceLabelingReader(BaseReader):
         writer.add_schema(nlp_schema, "proprocessed classification dataset")
         data = []
         for index, example in enumerate(examples):
-            if index % 10000 == 0:
-                logging.info("Writing example %d of %d" % (index, len(examples)))
+            if index % 1000 == 0:
+                print("Writing example %d of %d" % (index, len(examples)))
             record = self._convert_example_to_record(example, self.max_seq_len, self.tokenizer)
             sample = {
                 "input_ids": np.array(record.input_ids, dtype=np.int64),
@@ -505,14 +505,10 @@ class MRCReader(BaseReader):
             if is_training:
                 tok_start_position = orig_to_tok_index[example.start_position]
                 if example.end_position < len(example.doc_tokens) - 1:
-                    tok_end_position = orig_to_tok_index[example.end_position +
-                                                            1] - 1
+                    tok_end_position = orig_to_tok_index[example.end_position + 1] - 1
                 else:
                     tok_end_position = len(all_doc_tokens) - 1
-                (tok_start_position,
-                    tok_end_position) = self._improve_answer_span(
-                        all_doc_tokens, tok_start_position, tok_end_position,
-                        tokenizer, example.orig_answer_text)
+                (tok_start_position, tok_end_position) = self._improve_answer_span(all_doc_tokens, tok_start_position, tok_end_position, tokenizer, example.orig_answer_text)
 
             max_tokens_for_doc = max_seq_length - len(query_tokens) - 3
             doc_spans = []
@@ -603,8 +599,6 @@ class MRCReader(BaseReader):
     def file_based_convert_examples_to_features(self, input_file, output_file, shard_num, is_training):
         """"Convert a set of `InputExample`s to a MindDataset file."""
         examples = self._read_json(input_file, is_training)
-        # "input_ids", "input_mask", "segment_ids", "start_positions", "end_positions", "unique_ids"
-
         writer = FileWriter(file_name=output_file, shard_num=shard_num)
         if is_training:
             nlp_schema = {
@@ -626,8 +620,8 @@ class MRCReader(BaseReader):
         data = []
         records = self._convert_example_to_record(examples, self.max_seq_len, self.tokenizer, is_training)
         for index, record in enumerate(records):
-            if index % 10000 == 0:
-                logging.info("Writing example %d of %d" % (index, len(examples)))
+            if index % 1000 == 0:
+                print(("Writing example %d of %d" % (index, len(records))))
             if is_training:
                 sample = {
                     "input_ids": np.array(record.input_ids, dtype=np.int64),

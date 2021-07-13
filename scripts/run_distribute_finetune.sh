@@ -4,7 +4,7 @@ then
     echo "Please run the script as: "
     echo "sh run_distribute_finetune.sh [RANK_TABLE_FILE] [TASK_TYPE]"
     echo "for example: sh run_distribute_finetune.sh rank_table.json xnli"
-    echo "TASK_TYPE including [xnli, dbqa, drcd]"
+    echo "TASK_TYPE including [xnli, dbqa, drcd, cmrc]"
     echo "=============================================================================================================="
 exit 1
 fi
@@ -71,6 +71,16 @@ case $TASK_TYPE in
     EVAL_DATA_PATH="${DATA_PATH}/drcd/drcd_dev.mindrecord"
     EVAL_JSON_PATH="${DATA_PATH}/drcd/dev.json"  
     ;;
+  "cmrc")
+    PY_NAME=run_ernie_mrc
+    NUM_LABELS=2
+    NUM_EPOCH=5
+    TRAIN_BATCH_SIZE=16
+    EVAL_BATCH_SIZE=16
+    TRAIN_DATA_PATH="${DATA_PATH}/cmrc2018/cmrc_train.mindrecord0"
+    EVAL_DATA_PATH="${DATA_PATH}/cmrc2018/cmrc_dev.mindrecord"
+    EVAL_JSON_PATH="${DATA_PATH}/cmrc2018/dev.json"  
+    ;;
   esac
 
 for((i=0; i<$DEVICE_NUM; i++))
@@ -87,6 +97,7 @@ do
         --task_type=$TASK_TYPE \
         --device_target="Ascend" \
         --run_distribute="true" \
+        --vocab_path="${MODEL_PATH}/vocab.txt" \
         --do_train="true" \
         --do_eval=$DO_EVAL \
         --device_num=$DEVICE_NUM \
