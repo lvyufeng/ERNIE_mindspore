@@ -46,10 +46,10 @@ def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", sav
     # optimizer
     if optimizer_cfg.optimizer == 'AdamWeightDecay':
         lr_schedule = ErnieLearningRate(learning_rate=optimizer_cfg.AdamWeightDecay.learning_rate,
-                                       end_learning_rate=optimizer_cfg.AdamWeightDecay.end_learning_rate,
-                                       warmup_steps=int(steps_per_epoch * epoch_num * 0.1),
-                                       decay_steps=steps_per_epoch * epoch_num,
-                                       power=optimizer_cfg.AdamWeightDecay.power)
+                                        end_learning_rate=optimizer_cfg.AdamWeightDecay.end_learning_rate,
+                                        warmup_steps=int(steps_per_epoch * epoch_num * 0.1),
+                                        decay_steps=steps_per_epoch * epoch_num,
+                                        power=optimizer_cfg.AdamWeightDecay.power)
         params = network.trainable_params()
         decay_params = list(filter(optimizer_cfg.AdamWeightDecay.decay_filter, params))
         other_params = list(filter(lambda x: not optimizer_cfg.AdamWeightDecay.decay_filter(x), params))
@@ -85,7 +85,7 @@ def eval_result_print(assessment_method="accuracy", callback=None):
     print("Precision {:.6f} ".format(callback.TP / (callback.TP + callback.FP)))
     print("Recall {:.6f} ".format(callback.TP / (callback.TP + callback.FN)))
     print("F1 {:.6f} ".format(2 * callback.TP / (2 * callback.TP + callback.FP + callback.FN)))
-    
+
 def do_eval(dataset=None, network=None, num_class=41, assessment_method="accuracy", data_file="",
             load_checkpoint_path="", vocab_file="", label_file="", tag_to_index=None, batch_size=1):
     """ do eval """
@@ -99,7 +99,7 @@ def do_eval(dataset=None, network=None, num_class=41, assessment_method="accurac
 
     callback = SpanF1(tag_to_index)
 
-    evaluate_times = []  
+    evaluate_times = []
     columns_list = ["input_ids", "input_mask", "token_type_id", "label_ids"]
     for data in dataset.create_dict_iterator(num_epochs=1):
         input_data = []
@@ -114,9 +114,8 @@ def do_eval(dataset=None, network=None, num_class=41, assessment_method="accurac
     print("==============================================================")
     eval_result_print(assessment_method, callback)
     print("(w/o first and last) elapsed time: {}, per step time : {}".format(
-    sum(evaluate_times), sum(evaluate_times)/len(evaluate_times)))
+        sum(evaluate_times), sum(evaluate_times)/len(evaluate_times)))
     print("==============================================================")
-
 
 def parse_args():
     """set and check parameters."""
@@ -164,7 +163,6 @@ def parse_args():
         raise ValueError("'eval_data_file_path' must be set when do evaluation task")
     return args_opt
 
-
 def run_ner():
     """run ner task"""
     args_opt = parse_args()
@@ -190,18 +188,19 @@ def run_ner():
     number_labels = args_opt.number_labels
     if args_opt.do_train.lower() == "true":
         netwithloss = ErnieNER(ernie_net_cfg, args_opt.train_batch_size, True, num_labels=number_labels,
-                              tag_to_index=tag_to_index, dropout_prob=0.1)
+                               tag_to_index=tag_to_index, dropout_prob=0.1)
         ds = create_finetune_dataset(batch_size=args_opt.train_batch_size,
-                            repeat_count=1,
-                            data_file_path=args_opt.train_data_file_path,
-                            do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
+                                     repeat_count=1,
+                                     data_file_path=args_opt.train_data_file_path,
+                                     do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
         print("==============================================================")
         print("processor_name: {}".format(args_opt.device_target))
         print("test_name: ERNIE Finetune Training")
         print("model_name: {}".format("ERNIE + MLP"))
         print("batch_size: {}".format(args_opt.train_batch_size))
 
-        do_train(args_opt.task_type, ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
+        do_train(args_opt.task_type, ds, netwithloss, load_pretrain_checkpoint_path,
+                 save_finetune_checkpoint_path, epoch_num)
 
         if args_opt.do_eval.lower() == "true":
             if save_finetune_checkpoint_path == "":
@@ -213,9 +212,9 @@ def run_ner():
 
     if args_opt.do_eval.lower() == "true":
         ds = create_finetune_dataset(batch_size=args_opt.eval_batch_size,
-                            repeat_count=1,
-                            data_file_path=args_opt.eval_data_file_path,
-                            do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
+                                     repeat_count=1,
+                                     data_file_path=args_opt.eval_data_file_path,
+                                     do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
         do_eval(ds, ErnieNER, number_labels, assessment_method,
                 args_opt.eval_data_file_path, load_finetune_checkpoint_path, args_opt.vocab_file_path,
                 args_opt.label_file_path, tag_to_index, args_opt.eval_batch_size)

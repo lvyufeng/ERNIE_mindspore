@@ -15,7 +15,7 @@
 """
 Data operations, will be used in run_pretrain.py
 """
-import os
+
 import mindspore.common.dtype as mstype
 import mindspore.dataset as ds
 import mindspore.dataset.transforms.c_transforms as C
@@ -26,11 +26,11 @@ def create_ernie_dataset(device_num=1, rank=0, do_shuffle=True, data_file_path=N
     """create train dataset"""
     # apply repeat operations
     data_set = ds.MindDataset(data_file_path,
-                            columns_list=["input_ids", "input_mask", "token_type_id", "next_sentence_labels",
-                                        "masked_lm_positions", "masked_lm_ids", "masked_lm_weights"],
-                            shuffle=do_shuffle,
-                            num_shards=device_num,
-                            shard_id=rank)
+                              columns_list=["input_ids", "input_mask", "token_type_id", "next_sentence_labels",
+                                            "masked_lm_positions", "masked_lm_ids", "masked_lm_weights"],
+                              shuffle=do_shuffle,
+                              num_shards=device_num,
+                              shard_id=rank)
 
     ori_dataset_size = data_set.get_dataset_size()
     print('origin dataset size: ', ori_dataset_size)
@@ -70,21 +70,22 @@ def create_finetune_dataset(batch_size=1,
     return data_set
 
 def create_mrc_dataset(batch_size=1,
-                        repeat_count=1,
-                        data_file_path=None,
-                        rank_size=1,
-                        rank_id=0,
-                        do_shuffle=True,
-                        is_training=True,
-                        drop_reminder=False):
+                       repeat_count=1,
+                       data_file_path=None,
+                       rank_size=1,
+                       rank_id=0,
+                       do_shuffle=True,
+                       is_training=True,
+                       drop_reminder=False):
     """create finetune or evaluation dataset"""
     type_cast_op = C.TypeCast(mstype.int32)
     if is_training:
         data_set = ds.MindDataset(data_file_path,
-                                columns_list=["input_ids", "input_mask", "token_type_id", "start_position", "end_position", "unique_id"],
-                                shuffle=do_shuffle,
-                                num_shards=rank_size,
-                                shard_id=rank_id)
+                                  columns_list=["input_ids", "input_mask", "token_type_id",
+                                                "start_position", "end_position", "unique_id"],
+                                  shuffle=do_shuffle,
+                                  num_shards=rank_size,
+                                  shard_id=rank_id)
         data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
         data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
         data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
@@ -93,10 +94,10 @@ def create_mrc_dataset(batch_size=1,
         data_set = data_set.map(operations=type_cast_op, input_columns="unique_id")
     else:
         data_set = ds.MindDataset(data_file_path,
-                                columns_list=["input_ids", "input_mask", "token_type_id", "unique_id"],
-                                shuffle=do_shuffle,
-                                num_shards=rank_size,
-                                shard_id=rank_id)
+                                  columns_list=["input_ids", "input_mask", "token_type_id", "unique_id"],
+                                  shuffle=do_shuffle,
+                                  num_shards=rank_size,
+                                  shard_id=rank_id)
         data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
         data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
         data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")

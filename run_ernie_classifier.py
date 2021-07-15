@@ -78,7 +78,8 @@ def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", sav
     callbacks = [TimeMonitor(dataset.get_dataset_size()), LossCallBack(dataset.get_dataset_size()), ckpoint_cb]
     model.train(epoch_num, dataset, callbacks=callbacks)
 
-def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path="", ernie_net_cfg=None, assessment_method='accuracy'):
+def do_eval(dataset=None, network=None, number_labels=2,
+            load_checkpoint_path="", assessment_method='accuracy'):
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
@@ -86,7 +87,7 @@ def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path=""
     net_for_pretraining.set_train(False)
     param_dict = load_checkpoint(load_checkpoint_path)
     load_param_into_net(net_for_pretraining, param_dict)
-    
+
     if assessment_method == 'accuracy':
         callback = Accuracy()
     elif assessment_method == 'f1':
@@ -109,7 +110,7 @@ def do_eval(dataset=None, network=None, number_labels=2, load_checkpoint_path=""
     print("==============================================================")
     eval_result_print(assessment_method, callback)
     print("(w/o first and last) elapsed time: {}, per step time : {}".format(
-        sum(evaluate_times), sum(evaluate_times)/len(evaluate_times)))    
+        sum(evaluate_times), sum(evaluate_times)/len(evaluate_times)))
     print("==============================================================")
 
 def eval_result_print(assessment_method="accuracy", callback=None):
@@ -124,8 +125,8 @@ def eval_result_print(assessment_method="accuracy", callback=None):
     else:
         raise ValueError("Assessment method not supported, support: [accuracy, f1, mcc, spearman_correlation]")
 
-def run_classifier():
-    """run classifier task"""
+def parse_args():
+    """set and check parameters."""
     parser = argparse.ArgumentParser(description="run classifier")
     parser.add_argument("--task_type", type=str, default="chnsenticorp", choices=["chnsenticorp", "xnli", "dbqa"],
                         help="Task type, default is chnsenticorp")
@@ -166,6 +167,12 @@ def run_classifier():
                         help='train on modelarts or not, default is false')
     args_opt = parser.parse_args()
 
+    return args_opt
+
+def run_classifier():
+    """run classifier task"""
+    args_opt = parse_args()
+
     epoch_num = args_opt.epoch_num
     load_pretrain_checkpoint_path = args_opt.load_pretrain_checkpoint_path
     save_finetune_checkpoint_path = args_opt.save_finetune_checkpoint_path
@@ -203,14 +210,6 @@ def run_classifier():
         rank = 0
         device_num = 1
 
-    if args_opt.modelarts.lower() == 'true':
-        import moxing as mox
-        mox.file.copy_parallel(args_opt.data_url, '/cache/data')
-        mox.file.copy_parallel(args_opt.load_pretrain_checkpoint_path, args_opt.local_pretrain_checkpoint_path)
-        load_pretrain_checkpoint_path = args_opt.local_pretrain_checkpoint_path
-        if args_opt.do_train.lower() == "false" and args_opt.do_eval.lower() == "true":
-            mox.file.copy_parallel(args_opt.save_finetune_checkpoint_path, args_opt.load_finetune_checkpoint_path)
-
     if args_opt.do_train.lower() == "false" and args_opt.do_eval.lower() == "false":
         raise ValueError("At least one of 'do_train' or 'do_eval' must be true")
     if args_opt.do_train.lower() == "true" and args_opt.train_data_file_path == "":
@@ -238,7 +237,8 @@ def run_classifier():
                                      rank_size=args_opt.device_num,
                                      rank_id=rank,
                                      do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
-        do_train(args_opt.task_type + '-' + str(rank), ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
+        do_train(args_opt.task_type + '-' + str(rank), ds, netwithloss,
+                 load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
 
         if args_opt.do_eval.lower() == "true":
             if save_finetune_checkpoint_path == "":
@@ -253,9 +253,7 @@ def run_classifier():
                                      repeat_count=1,
                                      data_file_path=args_opt.eval_data_file_path,
                                      do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"))
-        do_eval(ds, ErnieCLS, args_opt.number_labels, load_finetune_checkpoint_path, ernie_net_cfg, assessment_method)
+        do_eval(ds, ErnieCLS, args_opt.number_labels, load_finetune_checkpoint_path, assessment_method)
 
-    if args_opt.modelarts.lower() == 'true' and args_opt.do_train.lower() == "true":
-        mox.file.copy_parallel(save_finetune_checkpoint_path, args_opt.train_url)
 if __name__ == "__main__":
     run_classifier()

@@ -1,3 +1,20 @@
+# Copyright 2020 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+"""
+convert paddle weights to mindspore
+"""
 import collections
 import os
 import json
@@ -22,22 +39,38 @@ def build_params_map(attention_num=12):
     })
     # add attention layers
     for i in range(attention_num):
-        weight_map[f'encoder_layer_{i}_multi_head_att_query_fc.w_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.query_layer.weight'
-        weight_map[f'encoder_layer_{i}_multi_head_att_query_fc.b_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.query_layer.bias'
-        weight_map[f'encoder_layer_{i}_multi_head_att_key_fc.w_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.key_layer.weight'
-        weight_map[f'encoder_layer_{i}_multi_head_att_key_fc.b_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.key_layer.bias'
-        weight_map[f'encoder_layer_{i}_multi_head_att_value_fc.w_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.value_layer.weight'
-        weight_map[f'encoder_layer_{i}_multi_head_att_value_fc.b_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.value_layer.bias'
-        weight_map[f'encoder_layer_{i}_multi_head_att_output_fc.w_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.output.dense.weight'
-        weight_map[f'encoder_layer_{i}_multi_head_att_output_fc.b_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.output.dense.bias'
-        weight_map[f'encoder_layer_{i}_post_att_layer_norm_scale'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.output.layernorm.gamma'
-        weight_map[f'encoder_layer_{i}_post_att_layer_norm_bias'] = f'ernie.ernie.ernie_encoder.layers.{i}.attention.output.layernorm.beta'
-        weight_map[f'encoder_layer_{i}_ffn_fc_0.w_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.intermediate.weight'
-        weight_map[f'encoder_layer_{i}_ffn_fc_0.b_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.intermediate.bias'
-        weight_map[f'encoder_layer_{i}_ffn_fc_1.w_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.output.dense.weight'
-        weight_map[f'encoder_layer_{i}_ffn_fc_1.b_0'] = f'ernie.ernie.ernie_encoder.layers.{i}.output.dense.bias'
-        weight_map[f'encoder_layer_{i}_post_ffn_layer_norm_scale'] = f'ernie.ernie.ernie_encoder.layers.{i}.output.layernorm.gamma'
-        weight_map[f'encoder_layer_{i}_post_ffn_layer_norm_bias'] = f'ernie.ernie.ernie_encoder.layers.{i}.output.layernorm.beta'
+        weight_map[f'encoder_layer_{i}_multi_head_att_query_fc.w_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.query_layer.weight'
+        weight_map[f'encoder_layer_{i}_multi_head_att_query_fc.b_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.query_layer.bias'
+        weight_map[f'encoder_layer_{i}_multi_head_att_key_fc.w_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.key_layer.weight'
+        weight_map[f'encoder_layer_{i}_multi_head_att_key_fc.b_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.key_layer.bias'
+        weight_map[f'encoder_layer_{i}_multi_head_att_value_fc.w_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.value_layer.weight'
+        weight_map[f'encoder_layer_{i}_multi_head_att_value_fc.b_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.attention.value_layer.bias'
+        weight_map[f'encoder_layer_{i}_multi_head_att_output_fc.w_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.output.dense.weight'
+        weight_map[f'encoder_layer_{i}_multi_head_att_output_fc.b_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.output.dense.bias'
+        weight_map[f'encoder_layer_{i}_post_att_layer_norm_scale'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.output.layernorm.gamma'
+        weight_map[f'encoder_layer_{i}_post_att_layer_norm_bias'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.attention.output.layernorm.beta'
+        weight_map[f'encoder_layer_{i}_ffn_fc_0.w_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.intermediate.weight'
+        weight_map[f'encoder_layer_{i}_ffn_fc_0.b_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.intermediate.bias'
+        weight_map[f'encoder_layer_{i}_ffn_fc_1.w_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.output.dense.weight'
+        weight_map[f'encoder_layer_{i}_ffn_fc_1.b_0'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.output.dense.bias'
+        weight_map[f'encoder_layer_{i}_post_ffn_layer_norm_scale'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.output.layernorm.gamma'
+        weight_map[f'encoder_layer_{i}_post_ffn_layer_norm_bias'] = \
+            f'ernie.ernie.ernie_encoder.layers.{i}.output.layernorm.beta'
     # add pooler
     weight_map.update(
         {
@@ -50,6 +83,7 @@ def build_params_map(attention_num=12):
     return weight_map
 
 def extract_and_convert(input_dir, output_dir):
+    """extract weights and convert to mindspore"""
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     config = json.load(open(os.path.join(input_dir, 'ernie_config.json'), 'rt', encoding='utf-8'))
@@ -69,7 +103,7 @@ def extract_and_convert(input_dir, output_dir):
             or 'post_ffn_layer_norm_scale' in weight_name \
             or 'cls_out_w' in weight_name:
             weight_value = weight_value.transpose()
-        state_dict.append({'name':weight_map[weight_name],'data':Tensor(weight_value)})
+        state_dict.append({'name': weight_map[weight_name], 'data': Tensor(weight_value)})
         print(weight_name, '->', weight_map[weight_name], weight_value.shape)
     save_checkpoint(state_dict, os.path.join(output_dir, "ernie.ckpt"))
 
@@ -80,6 +114,6 @@ def run_convert():
     parser.add_argument("--output_dir", type=str, default="", help="Converted model dir")
     args_opt = parser.parse_args()
     extract_and_convert(args_opt.input_dir, args_opt.output_dir)
-    
+
 if __name__ == '__main__':
     run_convert()

@@ -28,8 +28,7 @@ from mindspore.context import ParallelMode
 from mindspore.nn.wrap.loss_scale import DynamicLossScaleUpdateCell
 from mindspore.train.callback import ModelCheckpoint, CheckpointConfig, TimeMonitor
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
-from mindspore.train.train_thor import ConvertModelUtils
-from mindspore.nn.optim import Lamb, Momentum, AdamWeightDecay, thor
+from mindspore.nn.optim import Lamb, Momentum, AdamWeightDecay
 from mindspore import log as logger
 from mindspore.common import set_seed
 from src.ernie_for_pretraining import \
@@ -37,13 +36,12 @@ from src.ernie_for_pretraining import \
                 ErnieTrainAccumulationAllReduceEachWithLossScaleCell, \
                 ErnieTrainAccumulationAllReducePostWithLossScaleCell, \
                 ErnieTrainOneStepWithLossScaleCellForAdam
-                
+
 from src.adam import AdamWeightDecayForErnie, AdamWeightDecayOp
 from src.dataset import create_ernie_dataset
 from src.config import cfg, ernie_net_cfg
 from src.utils import LossCallBack, ErnieLearningRate
 _current_dir = os.path.dirname(os.path.realpath(__file__))
-
 
 def _set_ernie_all_reduce_split():
     """set ernie all_reduce fusion split, support num_hidden_layers is 12 and 24."""
@@ -70,10 +68,10 @@ def _get_optimizer(args_opt, network):
     """get ernie optimizer, support Lamb, Momentum, AdamWeightDecay."""
     if cfg.optimizer == 'Lamb':
         lr_schedule = ErnieLearningRate(learning_rate=cfg.Lamb.learning_rate,
-                                       end_learning_rate=cfg.Lamb.end_learning_rate,
-                                       warmup_steps=cfg.Lamb.warmup_steps,
-                                       decay_steps=args_opt.train_steps,
-                                       power=cfg.Lamb.power)
+                                        end_learning_rate=cfg.Lamb.end_learning_rate,
+                                        warmup_steps=cfg.Lamb.warmup_steps,
+                                        decay_steps=args_opt.train_steps,
+                                        power=cfg.Lamb.power)
         params = network.trainable_params()
         decay_params = list(filter(cfg.Lamb.decay_filter, params))
         other_params = list(filter(lambda x: not cfg.Lamb.decay_filter(x), params))
@@ -86,10 +84,10 @@ def _get_optimizer(args_opt, network):
                              momentum=cfg.Momentum.momentum)
     elif cfg.optimizer == 'AdamWeightDecay':
         lr_schedule = ErnieLearningRate(learning_rate=cfg.AdamWeightDecay.learning_rate,
-                                       end_learning_rate=cfg.AdamWeightDecay.end_learning_rate,
-                                       warmup_steps=cfg.AdamWeightDecay.warmup_steps,
-                                       decay_steps=args_opt.train_steps,
-                                       power=cfg.AdamWeightDecay.power)
+                                        end_learning_rate=cfg.AdamWeightDecay.end_learning_rate,
+                                        warmup_steps=cfg.AdamWeightDecay.warmup_steps,
+                                        decay_steps=args_opt.train_steps,
+                                        power=cfg.AdamWeightDecay.power)
         params = network.trainable_params()
         decay_params = list(filter(cfg.AdamWeightDecay.decay_filter, params))
         other_params = list(filter(lambda x: not cfg.AdamWeightDecay.decay_filter(x), params))
@@ -214,7 +212,8 @@ def run_pretrain():
             args_opt.save_checkpoint_steps *= args_opt.accumulation_steps
             logger.info("save checkpoint steps: {}".format(args_opt.save_checkpoint_steps))
 
-    ds = create_ernie_dataset(device_num, rank, True if args_opt.do_shuffle == 'true' else False, args_opt.data_dir, args_opt.schema_dir)
+    ds = create_ernie_dataset(device_num, rank, (args_opt.do_shuffle == 'true'),
+                              args_opt.data_dir, args_opt.schema_dir)
     net_with_loss = ErnieNetworkWithLoss(ernie_net_cfg, True)
 
     new_repeat_count = args_opt.epoch_size * ds.get_dataset_size() // args_opt.data_sink_steps
@@ -247,10 +246,10 @@ def run_pretrain():
         if accumulation_steps <= 1:
             if cfg.optimizer == 'AdamWeightDecay' and args_opt.device_target == 'GPU':
                 net_with_grads = ErnieTrainOneStepWithLossScaleCellForAdam(net_with_loss, optimizer=optimizer,
-                                                                          scale_update_cell=update_cell)
+                                                                           scale_update_cell=update_cell)
             else:
                 net_with_grads = ErnieTrainOneStepWithLossScaleCell(net_with_loss, optimizer=optimizer,
-                                                                   scale_update_cell=update_cell)
+                                                                    scale_update_cell=update_cell)
         else:
             allreduce_post = args_opt.distribute == "false" or args_opt.allreduce_post_accumulation == "true"
             net_with_accumulation = (ErnieTrainAccumulationAllReducePostWithLossScaleCell if allreduce_post else
@@ -269,4 +268,3 @@ def run_pretrain():
 if __name__ == '__main__':
     set_seed(0)
     run_pretrain()
-

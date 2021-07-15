@@ -18,10 +18,9 @@ Dataset reader for preprocessing and converting dataset into MindRecord.
 
 import io
 import argparse
-import six
 import json
-import numpy as np
 from collections import namedtuple
+import numpy as np
 from mindspore.mindrecord import FileWriter
 from mindspore.log import logging
 from src.tokenizer import FullTokenizer, convert_to_unicode, tokenize_chinese_chars
@@ -38,26 +37,6 @@ def csv_reader(fd, delimiter='\t'):
             else:
                 yield slots
     return gen()
-
-def convert_to_unicode(text):
-    """Converts `text` to Unicode (if it's not already), assuming utf-8 input."""
-    if six.PY3:
-        if isinstance(text, str):
-            text = text
-        elif isinstance(text, bytes):
-            text = text.decode("utf-8", "ignore")
-        else:
-            raise ValueError("Unsupported string type: %s" % (type(text)))
-    elif six.PY2:
-        if isinstance(text, str):
-            text = text.decode("utf-8", "ignore")
-        elif isinstance(text, unicode):
-            text = text
-        else:
-            raise ValueError("Unsupported string type: %s" % (type(text)))
-    else:
-        raise ValueError("Not running on Python2 or Python 3?")
-    return text
 
 class BaseReader:
     """BaseReader for classify and sequence labeling task"""
@@ -249,6 +228,7 @@ class ClassifyReader(BaseReader):
         writer.commit()
 
 class SequenceLabelingReader(BaseReader):
+    """sequence labeling reader"""
     def _convert_example_to_record(self, example, max_seq_length, tokenizer):
         tokens = convert_to_unicode(example.text_a).split(u"")
         labels = convert_to_unicode(example.label).split(u"")
@@ -270,7 +250,7 @@ class SequenceLabelingReader(BaseReader):
             input_mask.append(0)
             token_type_id.append(0)
             label_ids.append(no_entity_id)
-        
+
         Record = namedtuple(
             'Record',
             ['input_ids', 'input_mask', 'token_type_id', 'label_ids'])
@@ -283,11 +263,11 @@ class SequenceLabelingReader(BaseReader):
         return record
 
     def _reseg_token_label(self, tokens, labels, tokenizer):
-        assert len(tokens) == len(tokens)
+        """resegmentation toke label"""
         ret_tokens, ret_labels = [], []
         for token, label in zip(tokens, labels):
             sub_token = tokenizer.tokenize(token)
-            if len(sub_token) == 0:
+            if not sub_token:
                 continue
             ret_tokens.extend(sub_token)
             if len(sub_token) == 1:
@@ -339,7 +319,7 @@ class SequenceLabelingReader(BaseReader):
         writer.commit()
 
 class MRCReader(BaseReader):
-    """"""
+    """machine reading comprehension reader"""
     def __init__(self,
                  vocab_path,
                  label_map_config=None,
@@ -350,12 +330,11 @@ class MRCReader(BaseReader):
                  task_id=0,
                  doc_stride=128,
                  max_query_len=64):
-        super().__init__(
-                 vocab_path,
-                 label_map_config,
-                 max_seq_len,
-                 do_lower_case,
-                 random_seed)
+        super().__init__(vocab_path,
+                         label_map_config,
+                         max_seq_len,
+                         do_lower_case,
+                         random_seed)
         self.for_cn = for_cn
         self.task_id = task_id
         self.doc_stride = doc_stride
@@ -367,11 +346,12 @@ class MRCReader(BaseReader):
             np.random.seed(random_seed)
 
         self.Example = namedtuple('Example',
-                ['qas_id', 'question_text', 'doc_tokens', 'orig_answer_text',
-                'start_position', 'end_position'])
+                                  ['qas_id', 'question_text', 'doc_tokens', 'orig_answer_text',
+                                   'start_position', 'end_position'])
         self.DocSpan = namedtuple("DocSpan", ["start", "length"])
 
     def _read_json(self, input_file, is_training=True):
+        """read json file"""
         examples = []
         with open(input_file, "r", encoding='utf8') as f:
             input_data = json.load(f)["data"]
@@ -395,22 +375,20 @@ class MRCReader(BaseReader):
                 doc_tokens = [
                     paragraph_text[:answer_offset],
                     paragraph_text[answer_offset:answer_offset +
-                                    answer_length],
+                                   answer_length],
                     paragraph_text[answer_offset + answer_length:]
                 ]
 
                 start_pos = 1
                 end_pos = 1
 
-                actual_text = " ".join(doc_tokens[start_pos:(end_pos
-                                                                + 1)])
+                actual_text = " ".join(doc_tokens[start_pos:(end_pos + 1)])
                 if actual_text.find(orig_answer_text) == -1:
                     logging.info("Could not find answer: '%s' vs. '%s'",
-                            actual_text, orig_answer_text)
+                                 actual_text, orig_answer_text)
                     return None
             else:
-                doc_tokens = tokenize_chinese_chars(
-                    paragraph_text)
+                doc_tokens = tokenize_chinese_chars(paragraph_text)
 
             example = self.Example(
                 qas_id=qas_id,
@@ -419,7 +397,7 @@ class MRCReader(BaseReader):
                 orig_answer_text=orig_answer_text,
                 start_position=start_pos,
                 end_position=end_pos)
-            
+
             return example
 
         for entry in input_data:
@@ -434,6 +412,7 @@ class MRCReader(BaseReader):
 
     def _improve_answer_span(self, doc_tokens, input_start, input_end,
                              tokenizer, orig_answer_text):
+        """improve answer span"""
         tok_answer_text = " ".join(tokenizer.tokenize(orig_answer_text))
 
         for new_start in range(input_start, input_end + 1):
@@ -445,6 +424,7 @@ class MRCReader(BaseReader):
         return (input_start, input_end)
 
     def _check_is_max_context(self, doc_spans, cur_span_index, position):
+        """check max context"""
         best_score = None
         best_span_index = None
         for (span_index, doc_span) in enumerate(doc_spans):
@@ -467,9 +447,9 @@ class MRCReader(BaseReader):
         records = []
         unique_id = 1000000000
         Record = namedtuple(
-                            'Record',
-                            ['input_ids', 'input_mask', 'token_type_id', 'start_position', 'end_position', 'unique_id',
-                            'example_index', 'doc_span_index', 'tokens', 'token_to_orig_map', 'token_is_max_context'])
+            'Record',
+            ['input_ids', 'input_mask', 'token_type_id', 'start_position', 'end_position', 'unique_id',
+             'example_index', 'doc_span_index', 'tokens', 'token_to_orig_map', 'token_is_max_context'])
 
         for index, example in enumerate(examples):
             query_tokens = tokenizer.tokenize(example.question_text)
@@ -493,7 +473,8 @@ class MRCReader(BaseReader):
                     tok_end_position = orig_to_tok_index[example.end_position + 1] - 1
                 else:
                     tok_end_position = len(all_doc_tokens) - 1
-                (tok_start_position, tok_end_position) = self._improve_answer_span(all_doc_tokens, tok_start_position, tok_end_position, tokenizer, example.orig_answer_text)
+                (tok_start_position, tok_end_position) = self._improve_answer_span(
+                    all_doc_tokens, tok_start_position, tok_end_position, tokenizer, example.orig_answer_text)
 
             max_tokens_for_doc = max_seq_length - len(query_tokens) - 3
             doc_spans = []
@@ -563,17 +544,10 @@ class MRCReader(BaseReader):
                         end_position = tok_end_position - doc_start + doc_offset
 
                 record = Record(
-                    input_ids=input_ids,
-                    input_mask=input_mask,
-                    token_type_id=token_type_id,
-                    start_position=start_position,
-                    end_position=end_position,
-                    unique_id=unique_id, 
-                    example_index=index,
-                    doc_span_index=doc_span_index,
-                    tokens=tokens,
-                    token_to_orig_map=token_to_orig_map,
-                    token_is_max_context=token_is_max_context,
+                    input_ids=input_ids, input_mask=input_mask, token_type_id=token_type_id,
+                    start_position=start_position, end_position=end_position, unique_id=unique_id,
+                    example_index=index, doc_span_index=doc_span_index, tokens=tokens,
+                    token_to_orig_map=token_to_orig_map, token_is_max_context=token_is_max_context,
                     )
 
                 records.append(record)
@@ -612,7 +586,7 @@ class MRCReader(BaseReader):
                     "input_ids": np.array(record.input_ids, dtype=np.int64),
                     "input_mask": np.array(record.input_mask, dtype=np.int64),
                     "token_type_id": np.array(record.token_type_id, dtype=np.int64),
-                    "start_position": np.array(record.start_position, dtype=np.int64),                
+                    "start_position": np.array(record.start_position, dtype=np.int64),
                     "end_position": np.array(record.end_position, dtype=np.int64),
                     "unique_id": np.array(record.unique_id, dtype=np.int64),
                 }
@@ -672,7 +646,8 @@ def main():
     parser.add_argument("--input_file", type=str, default="", help="raw data file")
     parser.add_argument("--output_file", type=str, default="", help="minddata file")
     parser.add_argument("--shard_num", type=int, default=0, help="output file shard number")
-    parser.add_argument("--is_training", type=str, default="false", help="Whether the processing dataset is training dataset.")
+    parser.add_argument("--is_training", type=str, default="false",
+                        help="Whether the processing dataset is training dataset.")
     args_opt = parser.parse_args()
 
     if args_opt.max_query_len == 0:
@@ -680,7 +655,7 @@ def main():
             vocab_path=args_opt.vocab_path,
             label_map_config=args_opt.label_map_config if have_label_map[args_opt.task_type] else None,
             max_seq_len=args_opt.max_seq_len,
-            do_lower_case=True if args_opt.do_lower_case == "true" else False,
+            do_lower_case=(args_opt.do_lower_case == "true"),
             random_seed=args_opt.random_seed
         )
     else:
@@ -688,7 +663,7 @@ def main():
             vocab_path=args_opt.vocab_path,
             label_map_config=args_opt.label_map_config if have_label_map[args_opt.task_type] else None,
             max_seq_len=args_opt.max_seq_len,
-            do_lower_case=True if args_opt.do_lower_case == "true" else False,
+            do_lower_case=(args_opt.do_lower_case == "true"),
             random_seed=args_opt.random_seed,
             max_query_len=args_opt.max_query_len,
         )
@@ -696,7 +671,7 @@ def main():
     reader.file_based_convert_examples_to_features(input_file=args_opt.input_file,
                                                    output_file=args_opt.output_file,
                                                    shard_num=args_opt.shard_num,
-                                                   is_training=True if args_opt.is_training == 'true' else False)
-                
+                                                   is_training=(args_opt.is_training == 'true'))
+
 if __name__ == "__main__":
     main()

@@ -12,22 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+""""
+Ernie pretrain data reader
+"""
 
 import collections
-import gzip
-import six
 import re
 import argparse
-import numpy as np
 import random
 import jieba
+import numpy as np
 from opencc import OpenCC
-import os
 from mindspore.mindrecord import FileWriter
 from src.tokenizer import convert_to_unicode, CharTokenizer
 from src.utils import get_file_list
 
-class ErnieDataReader(object):
+class ErnieDataReader:
+    """Ernie data reader"""
     def __init__(self,
                  file_list,
                  vocab_path,
@@ -54,7 +55,7 @@ class ErnieDataReader(object):
 
         self.max_seq_len = max_seq_len
         self.generate_neg_sample = generate_neg_sample
-                
+
         self.global_rng = random.Random(random_seed)
 
         self.pad_id = self.vocab["[PAD]"]
@@ -77,12 +78,12 @@ class ErnieDataReader(object):
         return vocab
 
     def random_pair_neg_samples(self, pos_samples):
-        """ randomly generate negtive samples using pos_samples
+        """ randomly generate negative samples using pos_samples
             Args:
                 pos_samples: list of positive samples
-            
+
             Returns:
-                neg_samples: list of negtive samples
+                neg_samples: list of negative samples
         """
         np.random.shuffle(pos_samples)
         num_sample = len(pos_samples)
@@ -90,15 +91,14 @@ class ErnieDataReader(object):
         miss_num = 0
 
         def split_sent(sample, max_len, sep_id):
-            token_ids, segment_ids, position_ids, seg_labels, next_sentence_label = sample
+            token_ids, _, _, seg_labels, _ = sample
             sep_index = token_ids.index(sep_id)
             left_len = sep_index - 1
             if left_len <= max_len:
                 return (token_ids[1:sep_index], seg_labels[1:sep_index])
-            else:
-                return [
-                    token_ids[sep_index + 1:-1], seg_labels[sep_index + 1:-1]
-                ]
+            return [
+                token_ids[sep_index + 1:-1], seg_labels[sep_index + 1:-1]
+            ]
 
         for i in range(num_sample):
             pair_index = (i + 1) % num_sample
@@ -126,14 +126,15 @@ class ErnieDataReader(object):
 
         return neg_samples, miss_num
 
-    def mixin_negtive_samples(self, sample_generator, buffer=1000):
-        """ 1. generate negtive samples by randomly group sentence_1 and sentence_2 of positive samples
-            2. combine negtive samples and positive samples
-            
+    def mixin_negative_samples(self, sample_generator, buffer=1000):
+        """ 1. generate negative samples by randomly group sentence_1 and sentence_2 of positive samples
+            2. combine negative samples and positive samples
+
             Args:
-                pos_sample_generator: a generator producing a parsed positive sample, which is a list: [token_ids, sent_ids, pos_ids, 1]
+                pos_sample_generator: a generator producing a parsed positive sample,
+                which is a list: [token_ids, sent_ids, pos_ids, 1]
             Returns:
-                sample: one sample from shuffled positive samples and negtive samples
+                sample: one sample from shuffled positive samples and negative samples
         """
         pos_samples = []
         neg_samples = []
@@ -163,7 +164,7 @@ class ErnieDataReader(object):
             print("stopiteration: reach end of file")
             if len(pos_samples) == 1:
                 yield pos_samples[0]
-            elif len(pos_samples) == 0:
+            elif not pos_samples:
                 yield None
             else:
                 new_neg_samples, miss_num = self.random_pair_neg_samples(
@@ -178,8 +179,9 @@ class ErnieDataReader(object):
             print("miss_num:%d\tideal_total_sample_num:%d\tmiss_rate:%f" %
                   (num_total_miss, pos_sample_num * 2,
                    num_total_miss / (pos_sample_num * 2)))
-    
+
     def shuffle_samples(self, sample_generator, buffer=1000):
+        """shuffle samples"""
         samples = []
         try:
             while True:
@@ -192,7 +194,7 @@ class ErnieDataReader(object):
                 samples = []
         except StopIteration:
             print("stopiteration: reach end of file")
-            if len(samples) == 0:
+            if not samples:
                 yield None
             else:
                 np.random.shuffle(samples)
@@ -216,7 +218,7 @@ class ErnieDataReader(object):
         instances = self.create_training_instances()
         sample_generator = generator(instances)
         if self.generate_neg_sample:
-            sample_generator = self.mixin_negtive_samples(
+            sample_generator = self.mixin_negative_samples(
                 sample_generator)
         else:
             #shuffle buffered sample
@@ -260,7 +262,7 @@ class ErnieDataReader(object):
                     segs = self.get_word_segs(line)
                     tokens = self.tokenizer.tokenize(segs)
                     seg_labels = [0 if "##" not in x else 1 for x in tokens]
-                    
+
                     if tokens:
                         all_documents[-1].append(tokens)
                         all_documents_segs[-1].append(seg_labels)
@@ -280,6 +282,22 @@ class ErnieDataReader(object):
 
     def create_instances_from_document(self, all_documents, all_documents_segs, document_index):
         """Creates `TrainingInstance`s for a single document."""
+        def get_random_document_index(all_documents, document_index):
+            for _ in range(10):
+                random_document_index = self.global_rng.randint(0, len(all_documents) - 1)
+                if random_document_index != document_index:
+                    break
+            return random_document_index
+
+        def get_tokens_b(random_document, random_document_segs, tokens_b, 
+                         tokens_b_segs, random_start, target_b_length):
+            for j in range(random_start, len(random_document)):
+                tokens_b.extend(random_document[j])
+                tokens_b_segs.extend(random_document_segs[j])
+                if len(tokens_b) >= target_b_length:
+                    break
+            return tokens_b, tokens_b_segs
+
         document = all_documents[document_index]
         document_segs = all_documents_segs[document_index]
         # Account for [CLS], [SEP], [SEP]
@@ -337,19 +355,13 @@ class ErnieDataReader(object):
                         # corpora. However, just to be careful, we try to make sure that
                         # the random document is not the same as the document
                         # we're processing.
-                        for _ in range(10):
-                            random_document_index = self.global_rng.randint(0, len(all_documents) - 1)
-                            if random_document_index != document_index:
-                                break
+                        random_document_index = get_random_document_index(all_documents, document_index)
 
                         random_document = all_documents[random_document_index]
                         random_document_segs = all_documents_segs[random_document_index]
                         random_start = self.global_rng.randint(0, len(random_document) - 1)
-                        for j in range(random_start, len(random_document)):
-                            tokens_b.extend(random_document[j])
-                            tokens_b_segs.extend(random_document_segs[j])
-                            if len(tokens_b) >= target_b_length:
-                                break
+                        tokens_b, tokens_b_segs = get_tokens_b(random_document, random_document_segs, tokens_b, 
+                                                               tokens_b_segs, random_start, target_b_length)
                         # We didn't actually use these segments so we "put them back" so
                         # they don't go to waste.
                         num_unused_segments = len(current_chunk) - a_end
@@ -361,8 +373,9 @@ class ErnieDataReader(object):
                             tokens_b.extend(current_chunk[j])
                             tokens_b_segs.extend(current_chunk_segs[j])
 
-                    self.truncate_seq_pair(tokens_a, tokens_b, tokens_a_segs, tokens_b_segs, max_num_tokens, self.global_rng)
-                    
+                    self.truncate_seq_pair(tokens_a, tokens_b, tokens_a_segs, tokens_b_segs,
+                                           max_num_tokens, self.global_rng)
+
                     assert len(tokens_a) >= 1
                     assert len(tokens_b) >= 1
 
@@ -386,7 +399,7 @@ class ErnieDataReader(object):
                         tokens.append(token)
                         segment_ids.append(1)
                         seg_labels.append(tokens_b_segs[idx])
-                    
+
                     tokens.append("[SEP]")
                     segment_ids.append(1)
                     seg_labels.append(-1)
@@ -428,19 +441,19 @@ class ErnieDataReader(object):
                 trunc_tokens_segs.pop()
 
     def mask(self,
-            token_ids,
-            seg_labels,
-            mask_word_tag,
-            vocab_size,
-            CLS=1,
-            SEP=2,
-            MASK=3):
+             token_ids,
+             seg_labels,
+             mask_word_tag,
+             vocab_size,
+             CLS=1,
+             SEP=2,
+             MASK=3):
         """
         Add mask for batch_tokens, return out, mask_label, mask_pos;
         Note: mask_pos responding the batch_tokens after padded;
         """
         num_to_predict = min(self.max_predictions_per_seq,
-                    max(1, int(round(len(token_ids) * self.masked_word_prob))))
+                             max(1, int(round(len(token_ids) * self.masked_word_prob))))
         mask_label = []
         mask_pos = []
         prob_mask = np.random.rand(len(token_ids))
@@ -485,7 +498,6 @@ class ErnieDataReader(object):
                     beg = 0
                 else:
                     beg = token_index
-                
         else:
             for token_index, token in enumerate(token_ids):
                 prob = prob_mask[token_index]
@@ -493,19 +505,19 @@ class ErnieDataReader(object):
                     continue
                 elif 0.03 < prob <= 0.15:
                     # mask
-                    if token != SEP and token != CLS:
+                    if token not in (SEP, CLS):
                         mask_label.append(token_ids[token_index])
                         token_ids[token_index] = MASK
                         mask_pos.append(token_index)
                 elif 0.015 < prob <= 0.03:
                     # random replace
-                    if token != SEP and token != CLS:
+                    if token not in (SEP, CLS):
                         mask_label.append(token_ids[token_index])
                         token_ids[token_index] = replace_ids[token_index]
                         mask_pos.append(token_index)
                 else:
                     # keep the original token
-                    if token != SEP and token != CLS:
+                    if token not in (SEP, CLS):
                         mask_label.append(token_ids[token_index])
                         mask_pos.append(token_index)
                 if len(mask_label) >= num_to_predict:
@@ -514,7 +526,8 @@ class ErnieDataReader(object):
         return token_ids, mask_label, mask_pos
 
     def _convert_example_to_record(self, example):
-        input_ids, segment_ids, position_ids, seg_labels, next_sentence_label, mask_word = example
+        """convert example to record"""
+        input_ids, segment_ids, _, seg_labels, next_sentence_label, mask_word = example
         vocab_size = len(self.vocab.keys())
         input_ids, masked_lm_ids, masked_lm_positions = self.mask(input_ids, seg_labels, mask_word, vocab_size)
 
@@ -527,13 +540,14 @@ class ErnieDataReader(object):
         assert len(input_ids) == self.max_seq_len
         assert len(input_mask) == self.max_seq_len
         assert len(segment_ids) == self.max_seq_len
- 
+
         masked_lm_weights = [1.0] * len(masked_lm_ids)
         while len(masked_lm_positions) < self.max_predictions_per_seq:
             masked_lm_positions.append(0)
             masked_lm_ids.append(0)
             masked_lm_weights.append(0.0)
-        return input_ids, input_mask, segment_ids, next_sentence_label, masked_lm_positions, masked_lm_ids, masked_lm_weights
+        return input_ids, input_mask, segment_ids, next_sentence_label, \
+            masked_lm_positions, masked_lm_ids, masked_lm_weights
 
     def get_word_segs(self, sentence):
         segs = jieba.lcut(sentence)
@@ -541,8 +555,6 @@ class ErnieDataReader(object):
 
     def file_based_convert_examples_to_features(self, output_file, shard_num):
         """"Convert a set of `InputExample`s to a MindDataset file."""
-        # "input_ids", "input_mask", "token_type_id", "next_sentence_labels", "masked_lm_positions", "masked_lm_ids", "masked_lm_weights"
-
         writer = FileWriter(file_name=output_file, shard_num=shard_num)
         nlp_schema = {
             "input_ids": {"type": "int64", "shape": [-1]},
@@ -598,22 +610,20 @@ def main():
     args_opt = parser.parse_args()
 
     file_list = get_file_list(args_opt.input_file)
-    reader = ErnieDataReader(
-                            file_list=file_list,
-                            vocab_path=args_opt.vocab_path,
-                            short_seq_prob=args_opt.short_seq_prob,
-                            masked_word_prob=args_opt.masked_word_prob,
-                            max_predictions_per_seq=args_opt.max_predictions_per_seq,
-                            dupe_factor=args_opt.dupe_factor,
-                            max_seq_len=args_opt.max_seq_len,
-                            random_seed=args_opt.random_seed,
-                            do_lower_case=True if args_opt.do_lower_case == 'true' else False,
-                            generate_neg_sample=True if args_opt.generate_neg_sample == 'true' else False
-    )
+
+    reader = ErnieDataReader(file_list=file_list,
+                             vocab_path=args_opt.vocab_path,
+                             short_seq_prob=args_opt.short_seq_prob,
+                             masked_word_prob=args_opt.masked_word_prob,
+                             max_predictions_per_seq=args_opt.max_predictions_per_seq,
+                             dupe_factor=args_opt.dupe_factor,
+                             max_seq_len=args_opt.max_seq_len,
+                             random_seed=args_opt.random_seed,
+                             do_lower_case=(args_opt.do_lower_case == 'true'),
+                             generate_neg_sample=(args_opt.generate_neg_sample == 'true'))
 
     reader.file_based_convert_examples_to_features(output_file=args_opt.output_file,
                                                    shard_num=args_opt.shard_num)
-       
 
 if __name__ == "__main__":
     main()

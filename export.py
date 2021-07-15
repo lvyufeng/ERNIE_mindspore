@@ -23,7 +23,8 @@ from src.finetune_eval_config import ernie_net_cfg
 from src.finetune_eval_model import ErnieCLSModel, ErnieNERModel
 
 parser = argparse.ArgumentParser(description="ERNIE finetune export")
-parser.add_argument("--task_type", type=str, choices=["msra_ner", "chnsenticorp"], default="msra_ner", help="task type to export")
+parser.add_argument("--task_type", type=str, choices=["msra_ner", "chnsenticorp"],
+                    default="msra_ner", help="task type to export")
 parser.add_argument("--device_id", type=int, default=0, help="Device id")
 parser.add_argument("--batch_size", type=int, default=32, help="batch size")
 parser.add_argument("--number_labels", type=int, default=3, help="batch size")

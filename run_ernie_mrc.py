@@ -17,7 +17,6 @@
 Bert finetune and evaluation script.
 '''
 import os
-import json
 import argparse
 import collections
 import mindspore.common.dtype as mstype
@@ -29,15 +28,14 @@ from mindspore.common.tensor import Tensor
 from mindspore.train.model import Model
 from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMonitor
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
-
+from mindspore.context import ParallelMode
+from mindspore.communication.management import init
 from src.ernie_for_finetune import ErnieMRCCell, ErnieMRC
 from src.dataset import create_mrc_dataset
 from src.utils import make_directory, LossCallBack, LoadNewestCkpt, ErnieLearningRate
 from src.finetune_eval_config import optimizer_cfg, ernie_net_cfg
 from src.mrc_get_predictions import write_predictions
 from src.mrc_postprocess import mrc_postprocess
-from mindspore.context import ParallelMode
-from mindspore.communication.management import init
 
 
 _cur_dir = os.getcwd()
@@ -51,10 +49,10 @@ def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", sav
     # optimizer
     if optimizer_cfg.optimizer == 'AdamWeightDecay':
         lr_schedule = ErnieLearningRate(learning_rate=optimizer_cfg.AdamWeightDecay.learning_rate,
-                                       end_learning_rate=optimizer_cfg.AdamWeightDecay.end_learning_rate,
-                                       warmup_steps=int(steps_per_epoch * epoch_num * 0.1),
-                                       decay_steps=steps_per_epoch * epoch_num,
-                                       power=optimizer_cfg.AdamWeightDecay.power)
+                                        end_learning_rate=optimizer_cfg.AdamWeightDecay.end_learning_rate,
+                                        warmup_steps=int(steps_per_epoch * epoch_num * 0.1),
+                                        decay_steps=steps_per_epoch * epoch_num,
+                                        power=optimizer_cfg.AdamWeightDecay.power)
         params = network.trainable_params()
         decay_params = list(filter(optimizer_cfg.AdamWeightDecay.decay_filter, params))
         other_params = list(filter(lambda x: not optimizer_cfg.AdamWeightDecay.decay_filter(x), params))
@@ -84,7 +82,7 @@ def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", sav
     callbacks = [TimeMonitor(dataset.get_dataset_size()), LossCallBack(dataset.get_dataset_size()), ckpoint_cb]
     model.train(epoch_num, dataset, callbacks=callbacks)
 
-def do_eval(dataset=None, load_checkpoint_path="", eval_batch_size=1, ernie_net_cfg=None):
+def do_eval(dataset=None, load_checkpoint_path="", eval_batch_size=1):
     """ do eval """
     if load_checkpoint_path == "":
         raise ValueError("Finetune model missed, evaluation task must load finetune model!")
@@ -109,7 +107,7 @@ def do_eval(dataset=None, load_checkpoint_path="", eval_batch_size=1, ernie_net_
         start = logits[1].asnumpy()
         end = logits[2].asnumpy()
 
-        for i, value in enumerate(ids):            
+        for i, value in enumerate(ids):
             unique_id = int(value)
             start_logits = [float(x) for x in start[i].flat]
             end_logits = [float(x) for x in end[i].flat]
@@ -199,7 +197,7 @@ def run_mrc():
     else:
         rank = 0
         device_num = 1
-    
+
     load_pretrain_checkpoint_path = args_opt.load_pretrain_checkpoint_path
     save_finetune_checkpoint_path = args_opt.save_finetune_checkpoint_path
     load_finetune_checkpoint_path = args_opt.load_finetune_checkpoint_path
@@ -231,7 +229,8 @@ def run_mrc():
         print("model_name: {}".format("ERNIE + MLP"))
         print("batch_size: {}".format(args_opt.train_batch_size))
 
-        do_train(args_opt.task_type + '-' + str(rank), ds, netwithloss, load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
+        do_train(args_opt.task_type + '-' + str(rank), ds, netwithloss,
+                 load_pretrain_checkpoint_path, save_finetune_checkpoint_path, epoch_num)
 
         if args_opt.do_eval.lower() == "true":
             if save_finetune_checkpoint_path == "":
@@ -249,7 +248,7 @@ def run_mrc():
                                 do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"),
                                 is_training=False,
                                 drop_reminder=False)
-        outputs = do_eval(ds, load_finetune_checkpoint_path, args_opt.eval_batch_size, ernie_net_cfg)
+        outputs = do_eval(ds, load_finetune_checkpoint_path, args_opt.eval_batch_size)
 
         reader = MRCReader(
             vocab_path=args_opt.vocab_path,

@@ -15,8 +15,6 @@
 
 """evaluation script for MRC"""
 
-from collections import Counter
-import string
 import re
 import json
 import sys
@@ -37,17 +35,17 @@ def evaluate(dataset, predictions):
                     print(message, file=sys.stderr)
                     continue
                 ground_truths = [ans["text"] for ans in qa["answers"]]
-                
+
                 prediction = predictions[qa['id']]
                 exact_match += calc_em_score(ground_truths, prediction)
                 f1 += calc_f1_score(ground_truths, prediction)
-    
+
     exact_match = 100.0 * exact_match / total
     f1 = 100.0 * f1 / total
     return {'exact_match': exact_match, 'f1': f1}
 
-# split Chinese with English
 def mixed_segmentation(in_str, rm_punc=False):
+    """split Chinese with English"""
     in_str = in_str.lower().strip()
     segs_out = []
     temp_str = ""
@@ -76,6 +74,7 @@ def mixed_segmentation(in_str, rm_punc=False):
     return segs_out
 
 def remove_punctuation(in_str):
+    """remove punctuation"""
     in_str = in_str.lower().strip()
     sp_char = [
         '-', ':', '_', '*', '^', '/', '\\', '~', '`', '+', '=', '，', '。', '：',
@@ -90,13 +89,15 @@ def remove_punctuation(in_str):
             out_segs.append(char)
     return ''.join(out_segs)
 
-# find longest common string
 def find_lcs(s1, s2):
+    """find longest common string"""
     m = [[0 for i in range(len(s2) + 1)] for j in range(len(s1) + 1)]
     mmax = 0
     p = 0
-    for i in range(len(s1)):
-        for j in range(len(s2)):
+    len_s1 = len(s1)
+    len_s2 = len(s2)
+    for i in range(len_s1):
+        for j in range(len_s2):
             if s1[i] == s2[j]:
                 m[i + 1][j + 1] = m[i][j] + 1
                 if m[i + 1][j + 1] > mmax:
@@ -105,6 +106,7 @@ def find_lcs(s1, s2):
     return s1[p - mmax:p], mmax
 
 def calc_em_score(answers, prediction):
+    """calculate exact match score"""
     em = 0
     for ans in answers:
         ans_ = remove_punctuation(ans)
@@ -116,11 +118,12 @@ def calc_em_score(answers, prediction):
     return em
 
 def calc_f1_score(answers, prediction):
+    """calculate f1 score"""
     f1_scores = []
     for ans in answers:
         ans_segs = mixed_segmentation(ans, rm_punc=True)
         prediction_segs = mixed_segmentation(prediction, rm_punc=True)
-        lcs, lcs_len = find_lcs(ans_segs, prediction_segs)
+        _, lcs_len = find_lcs(ans_segs, prediction_segs)
         if lcs_len == 0:
             f1_scores.append(0)
             continue
@@ -131,6 +134,7 @@ def calc_f1_score(answers, prediction):
     return max(f1_scores)
 
 def mrc_postprocess(dataset_file, all_predictions):
+    """post process mrc result"""
     with open(dataset_file, encoding='utf8') as ds:
         dataset_json = json.load(ds)
         dataset = dataset_json['data']

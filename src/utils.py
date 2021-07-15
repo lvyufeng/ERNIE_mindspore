@@ -19,7 +19,6 @@ Functional Cells used in Ernie finetune and evaluation.
 
 import os
 import math
-import collections
 import numpy as np
 import mindspore.nn as nn
 from mindspore import log as logger
@@ -214,13 +213,13 @@ def get_ernie_thor_damping(damping_max=5e-2, damping_min=1e-6, damping_power=1.0
     return Tensor(damping)
 
 def get_file_list(input_file):
+    """get file list of input folder"""
     if os.path.isdir(input_file):
         file_list = []
-        for root, dirs, files in os.walk(input_file):
+        for root, _, files in os.walk(input_file):
             for f in files:
                 file_list.append(os.path.join(root, f))
         return file_list
-    elif os.path.isfile(input_file):
+    if os.path.isfile(input_file):
         return [input_file]
-    else:
-        raise ValueError('The input path: "{}" is not a folder or file.'.format(input_file))
+    raise ValueError('The input path: "{}" is not a folder or file.'.format(input_file))

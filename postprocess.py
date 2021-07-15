@@ -21,7 +21,6 @@ import os
 import argparse
 import numpy as np
 from mindspore import Tensor
-from src.finetune_eval_config import ernie_net_cfg
 from src.assessment_method import Accuracy, F1
 from run_ner import eval_result_print
 
@@ -44,13 +43,9 @@ if __name__ == "__main__":
     if assessment_method == "accuracy":
         callback = Accuracy()
     elif assessment_method == "bf1":
-        callback = F1((use_crf.lower() == "true"), num_class)
+        callback = F1(num_class)
     elif assessment_method == "mf1":
-        callback = F1((use_crf.lower() == "true"), num_labels=num_class, mode="MultiLabel")
-    elif assessment_method == "mcc":
-        callback = MCC()
-    elif assessment_method == "spearman_correlation":
-        callback = Spearman_Correlation()
+        callback = F1(num_class, "MultiLabel")
     else:
         raise ValueError("Assessment method not supported, support: [accuracy, f1, mcc, spearman_correlation]")
 
