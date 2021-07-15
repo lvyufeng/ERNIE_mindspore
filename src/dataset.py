@@ -29,7 +29,8 @@ def create_ernie_dataset(device_num=1, rank=0, do_shuffle=True, data_file_path=N
                             columns_list=["input_ids", "input_mask", "token_type_id", "next_sentence_labels",
                                         "masked_lm_positions", "masked_lm_ids", "masked_lm_weights"],
                             shuffle=do_shuffle,
-                            num_shards=device_num, shard_id=rank, shard_equal_rows=True)
+                            num_shards=device_num,
+                            shard_id=rank)
 
     ori_dataset_size = data_set.get_dataset_size()
     print('origin dataset size: ', ori_dataset_size)

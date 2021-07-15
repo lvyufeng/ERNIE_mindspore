@@ -36,7 +36,7 @@ from src.ernie_for_pretraining import \
                 ErnieNetworkWithLoss, ErnieTrainOneStepCell, ErnieTrainOneStepWithLossScaleCell, \
                 ErnieTrainAccumulationAllReduceEachWithLossScaleCell, \
                 ErnieTrainAccumulationAllReducePostWithLossScaleCell, \
-                ErnieTrainOneStepWithLossScaleCellForAdam, \
+                ErnieTrainOneStepWithLossScaleCellForAdam
                 
 from src.adam import AdamWeightDecayForErnie, AdamWeightDecayOp
 from src.dataset import create_ernie_dataset
@@ -214,7 +214,7 @@ def run_pretrain():
             args_opt.save_checkpoint_steps *= args_opt.accumulation_steps
             logger.info("save checkpoint steps: {}".format(args_opt.save_checkpoint_steps))
 
-    ds = create_ernie_dataset(device_num, rank, args_opt.do_shuffle, args_opt.data_dir, args_opt.schema_dir)
+    ds = create_ernie_dataset(device_num, rank, True if args_opt.do_shuffle == 'true' else False, args_opt.data_dir, args_opt.schema_dir)
     net_with_loss = ErnieNetworkWithLoss(ernie_net_cfg, True)
 
     new_repeat_count = args_opt.epoch_size * ds.get_dataset_size() // args_opt.data_sink_steps

@@ -31,6 +31,8 @@ PROJECT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 CUR_DIR=`pwd`
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
+SAVE_PATH=${CUR_DIR}/save_models
+
 python ${PROJECT_DIR}/../run_ernie_pretrain.py  \
     --distribute="false" \
     --epoch_size=$EPOCH_SIZE \
@@ -44,5 +46,6 @@ python ${PROJECT_DIR}/../run_ernie_pretrain.py  \
     --load_checkpoint_path="" \
     --save_checkpoint_steps=10000 \
     --save_checkpoint_num=1 \
+    --save_checkpoint_path="${SAVE_PATH}"
     --data_dir=$DATA_DIR \
-    --schema_dir=$SCHEMA_DIR > pretraining_log.txt 2>&1 &
+    --schema_dir=$SCHEMA_DIR > ${GLOG_log_dir}/pretraining_log.txt 2>&1 &

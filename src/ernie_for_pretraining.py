@@ -159,14 +159,14 @@ class ErniePreTraining(nn.Cell):
 
     def __init__(self, config, is_training, use_one_hot_embeddings):
         super(ErniePreTraining, self).__init__()
-        self.bert = ErnieModel(config, is_training, use_one_hot_embeddings)
+        self.ernie = ErnieModel(config, is_training, use_one_hot_embeddings)
         self.cls1 = GetMaskedLMOutput(config)
         self.cls2 = GetNextSentenceOutput(config)
 
     def construct(self, input_ids, input_mask, token_type_id,
                   masked_lm_positions):
         sequence_output, pooled_output, embedding_table = \
-            self.bert(input_ids, token_type_id, input_mask)
+            self.ernie(input_ids, token_type_id, input_mask)
         prediction_scores = self.cls1(sequence_output,
                                       embedding_table,
                                       masked_lm_positions)

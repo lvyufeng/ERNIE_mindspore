@@ -577,7 +577,7 @@ class ErnieDataReader(object):
 def main():
     parser = argparse.ArgumentParser(description="read dataset and save it to minddata")
     parser.add_argument("--vocab_path", type=str, default="pretrain_models/converted/vocab.txt", help="vocab file")
-    parser.add_argument("--max_seq_len", type=int, default=128,
+    parser.add_argument("--max_seq_len", type=int, default=512,
                         help="The maximum total input sequence length after WordPiece tokenization. "
                         "Sequences longer than this will be truncated, and sequences shorter "
                         "than this will be padded.")

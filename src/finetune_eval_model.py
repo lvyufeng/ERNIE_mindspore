@@ -46,7 +46,7 @@ class ErnieCLSModel(nn.Cell):
         self.assessment_method = assessment_method
 
     def construct(self, input_ids, input_mask, token_type_id):
-        _, pooled_output = \
+        _, pooled_output, _ = \
             self.ernie(input_ids, token_type_id, input_mask)
         cls = self.cast(pooled_output, self.dtype)
         cls = self.dropout(cls)
@@ -110,7 +110,7 @@ class ErnieMRCModel(nn.Cell):
         self.is_training = is_training
 
     def construct(self, input_ids, input_mask, token_type_id):
-        sequence_output, _ = self.ernie(input_ids, token_type_id, input_mask)
+        sequence_output, _, _ = self.ernie(input_ids, token_type_id, input_mask)
         batch_size, seq_length, hidden_size = P.Shape()(sequence_output)
         sequence = P.Reshape()(sequence_output, (-1, hidden_size))
         logits = self.dense1(sequence)
