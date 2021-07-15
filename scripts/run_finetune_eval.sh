@@ -18,7 +18,7 @@ then
     echo "=============================================================================================================="
     echo "Please run the script as: "
     echo "sh run_finetune_eval.sh [TASK_TYPE]"
-    echo "for example: sh run_finetune_eval.sh msra_ner"
+    echo "for example: scripts/sh run_finetune_eval.sh msra_ner"
     echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli, dbqa, drcd]"
     echo "=============================================================================================================="
 exit 1
@@ -68,7 +68,7 @@ case $TASK_TYPE in
     NUM_LABELS=2
     EVAL_BATCH_SIZE=32
     LABEL_MAP=""
-    CKPT_PATH="${SAVE_PATH}/dbqa-0-3_2842.ckpt" \
+    CKPT_PATH="${SAVE_PATH}/dbqa-0-3_356.ckpt" \
     EVAL_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_test.mindrecord"
     EVAL_JSON_PATH=""
     ;;
@@ -77,7 +77,7 @@ case $TASK_TYPE in
     NUM_LABELS=2
     EVAL_BATCH_SIZE=32
     LABEL_MAP=""
-    CKPT_PATH="${SAVE_PATH}/drcd-0-3_300.ckpt" \
+    CKPT_PATH="${SAVE_PATH}/drcd-0-3_299.ckpt" \
     EVAL_DATA_PATH="${DATA_PATH}/drcd/drcd_test.mindrecord"
     EVAL_JSON_PATH="${DATA_PATH}/drcd/test.json"
     ;;

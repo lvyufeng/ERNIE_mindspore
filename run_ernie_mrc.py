@@ -24,7 +24,7 @@ import mindspore.common.dtype as mstype
 from mindspore import context
 from mindspore import log as logger
 from mindspore.nn.wrap.loss_scale import DynamicLossScaleUpdateCell
-from mindspore.nn.optim import AdamWeightDecay, Lamb, Momentum
+from mindspore.nn.optim import AdamWeightDecay, Adam, Adagrad
 from mindspore.common.tensor import Tensor
 from mindspore.train.model import Model
 from mindspore.train.callback import CheckpointConfig, ModelCheckpoint, TimeMonitor
@@ -62,16 +62,11 @@ def do_train(task_type, dataset=None, network=None, load_checkpoint_path="", sav
                         {'params': other_params, 'weight_decay': 0.0}]
 
         optimizer = AdamWeightDecay(group_params, lr_schedule, eps=optimizer_cfg.AdamWeightDecay.eps)
-    elif optimizer_cfg.optimizer == 'Lamb':
-        lr_schedule = ErnieLearningRate(learning_rate=optimizer_cfg.Lamb.learning_rate,
-                                       end_learning_rate=optimizer_cfg.Lamb.end_learning_rate,
-                                       warmup_steps=int(steps_per_epoch * epoch_num * 0.1),
-                                       decay_steps=steps_per_epoch * epoch_num,
-                                       power=optimizer_cfg.Lamb.power)
-        optimizer = Lamb(network.trainable_params(), learning_rate=lr_schedule)
-    elif optimizer_cfg.optimizer == 'Momentum':
-        optimizer = Momentum(network.trainable_params(), learning_rate=optimizer_cfg.Momentum.learning_rate,
-                             momentum=optimizer_cfg.Momentum.momentum)
+    elif optimizer_cfg.optimizer == 'Adam':
+        optimizer = Adam(network.trainable_params(), learning_rate=optimizer_cfg.Adam.learning_rate)
+    elif optimizer_cfg.optimizer == 'Adagrad':
+        optimizer = Adagrad(network.trainable_params(), learning_rate=optimizer_cfg.Adagrad.learning_rate)
+    # load checkpoint into network
     else:
         raise Exception("Optimizer not supported. support: [AdamWeightDecay, Lamb, Momentum]")
 
@@ -179,9 +174,11 @@ def run_mrc():
     if args_opt.task_type == 'drcd':
         ernie_net_cfg.seq_length = 512
         optimizer_cfg.AdamWeightDecay.learning_rate = 5e-5
+        repeat = 1
     elif args_opt.task_type == 'cmrc':
         ernie_net_cfg.seq_length = 512
         optimizer_cfg.AdamWeightDecay.learning_rate = 3e-5
+        repeat = 1
     else:
         raise ValueError("Unsupported task type.")
 
@@ -222,11 +219,12 @@ def run_mrc():
     if args_opt.do_train.lower() == "true":
         netwithloss = ErnieMRC(ernie_net_cfg, True, num_labels=args_opt.number_labels, dropout_prob=0.1)
         ds = create_mrc_dataset(batch_size=args_opt.train_batch_size,
-                                repeat_count=1,
+                                repeat_count=repeat,
                                 data_file_path=args_opt.train_data_file_path,
                                 rank_size=args_opt.device_num,
                                 rank_id=rank,
-                                do_shuffle=(args_opt.train_data_shuffle.lower() == "true"))
+                                do_shuffle=(args_opt.train_data_shuffle.lower() == "true"),
+                                drop_reminder=True)
         print("==============================================================")
         print("processor_name: {}".format(args_opt.device_target))
         print("test_name: ERNIE Finetune Training")
@@ -249,7 +247,8 @@ def run_mrc():
                                 repeat_count=1,
                                 data_file_path=args_opt.eval_data_file_path,
                                 do_shuffle=(args_opt.eval_data_shuffle.lower() == "true"),
-                                is_training=False)
+                                is_training=False,
+                                drop_reminder=False)
         outputs = do_eval(ds, load_finetune_checkpoint_path, args_opt.eval_batch_size, ernie_net_cfg)
 
         reader = MRCReader(

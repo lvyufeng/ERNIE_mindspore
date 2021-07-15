@@ -52,9 +52,7 @@ cfg = edict({
 
 '''
 Including two kinds of network: \
-base: Google BERT-base(the base version of BERT model).
-large: BERT-NEZHA(a Chinese pretrained language model developed by Huawei, which introduced a improvement of \
-       Functional Relative Posetional Encoding as an effective positional encoding scheme).
+base: Baidu ERNIE-base(the base version of ERNIE model).
 '''
 cfg.batch_size = 64
 ernie_net_cfg = ErnieConfig(

@@ -67,22 +67,13 @@ class BaseReader:
                  label_map_config=None,
                  max_seq_len=512,
                  do_lower_case=True,
-                 in_tokens=False,
                  random_seed=None):
         self.max_seq_len = max_seq_len
         self.tokenizer = FullTokenizer(
             vocab_file=vocab_path, do_lower_case=do_lower_case)
         self.vocab = self.tokenizer.vocab
-        self.pad_id = self.vocab["[PAD]"]
-        self.cls_id = self.vocab["[CLS]"]
-        self.sep_id = self.vocab["[SEP]"]
-        self.in_tokens = in_tokens
 
         np.random.seed(random_seed)
-
-        self.current_example = 0
-        self.current_epoch = 0
-        self.num_examples = 0
 
         if label_map_config:
             with open(label_map_config) as f:
@@ -354,7 +345,6 @@ class MRCReader(BaseReader):
                  label_map_config=None,
                  max_seq_len=512,
                  do_lower_case=True,
-                 in_tokens=False,
                  random_seed=None,
                  for_cn=True,
                  task_id=0,
@@ -365,7 +355,6 @@ class MRCReader(BaseReader):
                  label_map_config,
                  max_seq_len,
                  do_lower_case,
-                 in_tokens,
                  random_seed)
         self.for_cn = for_cn
         self.task_id = task_id
@@ -376,10 +365,6 @@ class MRCReader(BaseReader):
 
         if random_seed is not None:
             np.random.seed(random_seed)
-
-        self.current_example = 0
-        self.current_epoch = 0
-        self.num_examples = 0
 
         self.Example = namedtuple('Example',
                 ['qas_id', 'question_text', 'doc_tokens', 'orig_answer_text',
@@ -680,7 +665,7 @@ def main():
                         "than this will be padded.")
     parser.add_argument("--max_query_len", type=int, default=0,
                         help="The maximum total input query length after WordPiece tokenization.")
-    parser.add_argument("--do_lower_case", type=bool, default=True,
+    parser.add_argument("--do_lower_case", type=str, default="true",
                         help="Whether to lower case the input text. "
                         "Should be True for uncased models and False for cased models.")
     parser.add_argument("--random_seed", type=int, default=0, help="random seed number")
@@ -695,7 +680,7 @@ def main():
             vocab_path=args_opt.vocab_path,
             label_map_config=args_opt.label_map_config if have_label_map[args_opt.task_type] else None,
             max_seq_len=args_opt.max_seq_len,
-            do_lower_case=args_opt.do_lower_case,
+            do_lower_case=True if args_opt.do_lower_case == "true" else False,
             random_seed=args_opt.random_seed
         )
     else:
@@ -703,7 +688,7 @@ def main():
             vocab_path=args_opt.vocab_path,
             label_map_config=args_opt.label_map_config if have_label_map[args_opt.task_type] else None,
             max_seq_len=args_opt.max_seq_len,
-            do_lower_case=args_opt.do_lower_case,
+            do_lower_case=True if args_opt.do_lower_case == "true" else False,
             random_seed=args_opt.random_seed,
             max_query_len=args_opt.max_query_len,
         )

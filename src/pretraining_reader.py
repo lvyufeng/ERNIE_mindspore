@@ -16,70 +16,45 @@
 import collections
 import gzip
 import six
+import re
+import argparse
 import numpy as np
+import random
+import jieba
+from opencc import OpenCC
+import os
+from mindspore.mindrecord import FileWriter
+from src.tokenizer import convert_to_unicode, FullTokenizer
 
 class ErnieDataReader(object):
     def __init__(self,
-                 filelist,
+                 file_list,
                  vocab_path,
-                 batch_size=4096,
-                 in_tokens=True,
+                 short_seq_prob,
+                 masked_lm_prob,
+                 max_predictions_per_seq,
+                 dupe_factor,
                  max_seq_len=512,
-                 shuffle_files=True,
                  random_seed=1,
-                 epoch=100,
-                 voc_size=0,
-                 is_test=False,
+                 do_lower_case=True,
                  generate_neg_sample=False):
+        # short_seq_prob, masked_lm_prob, max_predictions_per_seq, vocab_words
 
         self.vocab = self.load_vocab(vocab_path)
-        self.filelist = filelist
-        self.batch_size = batch_size
-        self.in_tokens = in_tokens
-        self.random_seed = random_seed
-        self.shuffle_files = shuffle_files
-        self.epoch = epoch
-        self.current_epoch = 0
-        self.current_file_index = 0
-        self.total_file = 0
-        self.current_file = None
-        self.voc_size = voc_size
+        self.tokenizer = FullTokenizer(
+            vocab_file=vocab_path, do_lower_case=do_lower_case)
+
+        self.short_seq_prob = short_seq_prob
+        self.masked_lm_prob = masked_lm_prob
+        self.max_predictions_per_seq = max_predictions_per_seq
+        self.dupe_factor = dupe_factor
+
+        self.file_list = file_list
+
         self.max_seq_len = max_seq_len
-        self.pad_id = self.vocab["[PAD]"]
-        self.cls_id = self.vocab["[CLS]"]
-        self.sep_id = self.vocab["[SEP]"]
-        self.mask_id = self.vocab["[MASK]"]
-        self.is_test = is_test
         self.generate_neg_sample = generate_neg_sample
-        
-        self.trainer_id = 0
-        self.trainer_nums = 1
-        self.files = open(filelist).readlines()
-        self.total_file = len(self.files)
-        
-        if self.is_test:
-            self.epoch = 1
-            self.shuffle_files = False
-        
-        self.global_rng = np.random.RandomState(random_seed)
-        if self.shuffle_files:
-            tmp_files = []
-            for each in range(epoch):
-                each_files = self.files 
-                self.global_rng.shuffle(each_files)
-                tmp_files += each_files
-            self.files = tmp_files
-            #renew epochs
-            self.epoch = len(self.files) // self.total_file * self.total_file
-
-        if self.in_tokens:
-            assert self.batch_size > 100, "Current batch size means total token's number, \
-                                       it should not be set to too small number."
-
-    def get_progress(self):
-        """return current progress of traning data
-        """
-        return self.current_epoch, self.current_file_index, self.total_file, self.current_file, self.mask_type
+                
+        self.global_rng = random.Random(random_seed)
 
     def parse_line(self, line, max_seq_len=512):
         """ parse one line to token_ids, sentence_ids, pos_ids, label
@@ -268,80 +243,187 @@ class ErnieDataReader(object):
         """
         data_generator
         """
-        def wrapper():
-            def reader():
-                for epoch in range(self.epoch):
-                    self.current_epoch = epoch + 1
-                    files = self.files
-                    #during training, data are sliced by trainers
-                    if self.shuffle_files:
-                        start = epoch * self.total_file
-                        end = start + self.total_file
-                        files = [file_ for index, file_ in enumerate(self.files[start:end]) \
-                            if index % self.trainer_nums == self.trainer_id]
                     
-                    for index, file_ in enumerate(files):
-                        file_, mask_word_prob = file_.strip().split("\t")
-                        mask_word = (np.random.random() < float(mask_word_prob))
-                        self.current_file_index = (index + 1) * self.trainer_nums
-                        self.current_file = file_
-                        if mask_word:
-                            self.mask_type = "mask_word"
+        for index, file_ in enumerate(self.files):
+            file_, mask_word_prob = file_.strip().split("\t")
+            mask_word = (np.random.random() < float(mask_word_prob))
+            if mask_word:
+                self.mask_type = "mask_word"
+            else:
+                self.mask_type = "mask_char"
+
+            sample_generator = self.read_file(file_)
+            if self.generate_neg_sample:
+                sample_generator = self.mixin_negtive_samples(
+                    sample_generator)
+            else:
+                #shuffle buffered sample
+                sample_generator = self.shuffle_samples(
+                    sample_generator)
+
+            for sample in sample_generator:
+                if sample is None:
+                    continue
+                sample.append(mask_word)
+                yield sample
+
+    def file_based_convert_examples_to_features(self, input_file, output_file, shard_num):
+        """"Convert a set of `InputExample`s to a MindDataset file."""
+        # "input_ids", "input_mask", "segment_ids", "next_sentence_labels", "masked_lm_positions", "masked_lm_ids", "masked_lm_weights"
+        examples = self.data_generator()
+
+        writer = FileWriter(file_name=output_file, shard_num=shard_num)
+        nlp_schema = {
+            "input_ids": {"type": "int64", "shape": [-1]},
+            "input_mask": {"type": "int64", "shape": [-1]},
+            "token_type_id": {"type": "int64", "shape": [-1]},
+            "label_ids": {"type": "int64", "shape": [-1]},
+        }
+        writer.add_schema(nlp_schema, "proprocessed classification dataset")
+        data = []
+        index = 0
+        for example in examples:
+            if index % 1000 == 0:
+                print("Writing example %d of %d" % (index, len(examples)))
+            record = self._convert_example_to_record(example, self.max_seq_len, self.tokenizer)
+            sample = {
+                "input_ids": np.array(record.input_ids, dtype=np.int64),
+                "input_mask": np.array(record.input_mask, dtype=np.int64),
+                "token_type_id": np.array(record.token_type_id, dtype=np.int64),
+                "label_ids": np.array([record.label_id], dtype=np.int64),
+            }
+            data.append(sample)
+            index += 1
+        writer.write_raw_data(data)
+        writer.commit()
+
+    def create_training_instances(self):
+        """Create `TrainingInstance`s from raw text."""
+        all_documents = [[]]
+        all_documents_segs = [[]]
+        p1 = re.compile('<doc (.*)>')
+        p2 = re.compile('</doc>')
+        cc = OpenCC('t2s')
+        # Input file format:
+        # (1) One sentence per line. These should ideally be actual sentences, not
+        # entire paragraphs or arbitrary spans of text. (Because we use the
+        # sentence boundaries for the "next sentence prediction" task).
+        # (2) Blank lines between documents. Document boundaries are needed so
+        # that the "next sentence prediction" task doesn't span between documents.
+        count = 0
+        for input_file in self.file_list:
+            count += 1
+            with open(input_file, "r") as reader:
+                while True:
+                    line = reader.readline()
+                    if not line:
+                        break
+                    if p2.match(line):
+                        all_documents.append([])
+                        all_documents_segs.append([])
+                    line = p1.sub('', line)
+                    line = p2.sub('', line)
+                    line = cc.convert(line)
+                    line = convert_to_unicode(line)
+                    line = line.strip()
+
+                    segs = self.get_word_segs(line)
+                    all_tokens = []
+                    all_seg_labels = []
+                    for seg in segs:                    
+                        tokens = self.tokenizer.tokenize(seg)
+                        if len(tokens) > 1:
+                            seg_labels = [0] + [1] * (len(tokens) - 1)
+                        elif len(tokens) == 1:
+                            seg_labels = [0]
                         else:
-                            self.mask_type = "mask_char"
+                            seg_labels= []
+                        assert len(tokens) == len(seg_labels)
+                        all_tokens.extend(tokens)
+                        all_seg_labels.extend(seg_labels)
+                    if all_tokens:
+                        all_documents[-1].append(all_tokens)
+                        all_documents_segs[-1].append(all_seg_labels)
+            print(count)
+        # Remove empty documents
+        all_documents = [x for x in all_documents if x]
+        all_documents_segs = [x for x in all_documents_segs if x]
 
-                        sample_generator = self.read_file(file_)
-                        if not self.is_test:
-                            if self.generate_neg_sample:
-                                sample_generator = self.mixin_negtive_samples(
-                                    sample_generator)
-                            else:
-                                #shuffle buffered sample
-                                sample_generator = self.shuffle_samples(
-                                    sample_generator)
+        vocab_words = list(self.tokenizer.vocab.keys())
+        instances = []
+        for _ in range(self.dupe_factor):
+            for document_index in range(len(all_documents)):
+                print(document_index)
+                # instances.extend(
+                #     self.create_instances_from_document(
+                #         all_documents, document_index, short_seq_prob,
+                #         masked_lm_prob, max_predictions_per_seq, vocab_words))
 
-                        for sample in sample_generator:
-                            if sample is None:
-                                continue
-                            sample.append(mask_word)
-                            yield sample
+        self.global_rng.shuffle(instances)
+        return instances
 
-            def batch_reader(reader, batch_size):
-                batch, total_token_num, max_len = [], 0, 0
-                for parsed_line in reader():
-                    token_ids, sent_ids, pos_ids, label, seg_labels, mask_word = parsed_line
-                    max_len = max(max_len, len(token_ids))
-                    if self.in_tokens:
-                        to_append = (len(batch) + 1) * max_len <= batch_size
-                    else:
-                        to_append = len(batch) < batch_size
-                    if to_append:
-                        batch.append(parsed_line)
-                        total_token_num += len(token_ids)
-                    else:
-                        yield batch, total_token_num
-                        batch, total_token_num, max_len = [parsed_line], len(
-                            token_ids), len(token_ids)
+    def create_instances_from_document(self,):
+        pass
 
-                if len(batch) > 0:
-                    yield batch, total_token_num
+    def get_word_segs(self, sentence):
+        segs = jieba.lcut(sentence)
+        return segs
 
-            for batch_data, total_token_num in batch_reader(reader,
-                                                            self.batch_size):
-                yield prepare_batch_data(
-                    batch_data,
-                    total_token_num,
-                    voc_size=self.voc_size,
-                    pad_id=self.pad_id,
-                    cls_id=self.cls_id,
-                    sep_id=self.sep_id,
-                    mask_id=self.mask_id,
-                    return_input_mask=True,
-                    return_max_len=False,
-                    return_num_token=False)
+def get_file_list(input_file):
+    if os.path.isdir(input_file):
+        file_list = []
+        for root, dirs, files in os.walk(input_file):
+            for f in files:
+                file_list.append(os.path.join(root, f))
+        return file_list
+    elif os.path.isfile(input_file):
+        return [input_file]
+    else:
+        raise ValueError('The input path is not a folder or file.')
 
-        return wrapper
+def main():
+    parser = argparse.ArgumentParser(description="read dataset and save it to minddata")
+    parser.add_argument("--vocab_path", type=str, default="pretrain_models/converted/vocab.txt", help="vocab file")
+    parser.add_argument("--max_seq_len", type=int, default=128,
+                        help="The maximum total input sequence length after WordPiece tokenization. "
+                        "Sequences longer than this will be truncated, and sequences shorter "
+                        "than this will be padded.")
+    parser.add_argument("--do_lower_case", type=str, default="true",
+                        help="Whether to lower case the input text. "
+                        "Should be True for uncased models and False for cased models.")
+    parser.add_argument("--random_seed", type=int, default=0, help="random seed number")
+    parser.add_argument("--short_seq_prob", type=float, default=0.1, help="random seed number")
+    parser.add_argument("--masked_lm_prob", type=float, default=0.15, help="random seed number")
+    parser.add_argument("--max_predictions_per_seq", type=int, default=20, help="random seed number")
+    parser.add_argument("--dupe_factor", type=int, default=10, help="random seed number")
 
+    parser.add_argument("--generate_neg_sample", type=str, default="true", help="random seed number")
+
+    parser.add_argument("--input_file", type=str, default="data/text/AA/wiki_00", help="raw data file")
+    parser.add_argument("--output_file", type=str, default="", help="minddata file")
+    parser.add_argument("--shard_num", type=int, default=0, help="output file shard number")
+    args_opt = parser.parse_args()
+
+    file_list = get_file_list(args_opt.input_file)
+    reader = ErnieDataReader(
+                            file_list=file_list,
+                            vocab_path=args_opt.vocab_path,
+                            short_seq_prob=args_opt.short_seq_prob,
+                            masked_lm_prob=args_opt.masked_lm_prob,
+                            max_predictions_per_seq=args_opt.max_predictions_per_seq,
+                            dupe_factor=args_opt.dupe_factor,
+                            max_seq_len=args_opt.max_seq_len,
+                            random_seed=args_opt.random_seed,
+                            do_lower_case=True if args_opt.do_lower_case == 'true' else False,
+                            generate_neg_sample=True if args_opt.generate_neg_sample == 'true' else False
+    )
+
+    reader.create_training_instances()
+    # reader.file_based_convert_examples_to_features(input_file=args_opt.input_file,
+    #                                                output_file=args_opt.output_file,
+    #                                                shard_num=args_opt.shard_num,
+    #                                                is_training=True if args_opt.is_training == 'true' else False)
+       
 
 if __name__ == "__main__":
-    pass
+    main()

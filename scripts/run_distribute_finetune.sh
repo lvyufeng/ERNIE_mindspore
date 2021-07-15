@@ -3,7 +3,7 @@ then
     echo "=============================================================================================================="
     echo "Please run the script as: "
     echo "sh run_distribute_finetune.sh [RANK_TABLE_FILE] [TASK_TYPE]"
-    echo "for example: sh run_distribute_finetune.sh rank_table.json xnli"
+    echo "for example: sh scripts/run_distribute_finetune.sh rank_table.json xnli"
     echo "TASK_TYPE including [xnli, dbqa, drcd, cmrc]"
     echo "=============================================================================================================="
 exit 1
@@ -35,8 +35,8 @@ DATA_PATH=${CUR_DIR}/data
 SAVE_PATH=${CUR_DIR}/save_models
 export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
-export DEVICE_NUM=8
 export RANK_TABLE_FILE=$PATH1
+DEVICE_NUM=8
 START_DEVICE_NUM=0
 
 TASK_TYPE=$2
@@ -55,8 +55,8 @@ case $TASK_TYPE in
     PY_NAME=run_ernie_classifier
     NUM_LABELS=2
     NUM_EPOCH=3
-    TRAIN_BATCH_SIZE=8
-    EVAL_BATCH_SIZE=8
+    TRAIN_BATCH_SIZE=64
+    EVAL_BATCH_SIZE=64
     TRAIN_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_train.mindrecord0"
     EVAL_DATA_PATH="${DATA_PATH}/nlpcc-dbqa/dbqa_dev.mindrecord"    
     EVAL_JSON_PATH="${DATA_PATH}/nlpcc-dbqa/dev.json"
@@ -74,10 +74,10 @@ case $TASK_TYPE in
   "cmrc")
     PY_NAME=run_ernie_mrc
     NUM_LABELS=2
-    NUM_EPOCH=5
+    NUM_EPOCH=3
     TRAIN_BATCH_SIZE=16
     EVAL_BATCH_SIZE=16
-    TRAIN_DATA_PATH="${DATA_PATH}/cmrc2018/cmrc_train.mindrecord0"
+    TRAIN_DATA_PATH="${DATA_PATH}/cmrc2018/cmrc_train.mindrecord"
     EVAL_DATA_PATH="${DATA_PATH}/cmrc2018/cmrc_dev.mindrecord"
     EVAL_JSON_PATH="${DATA_PATH}/cmrc2018/dev.json"  
     ;;

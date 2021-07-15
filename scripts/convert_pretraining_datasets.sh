@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-if [ $# -ne 3 ]
+if [ $# -ne 2 ]
 then
     echo "=============================================================================================================="
     echo "Please run the script as: "
-    echo "sh convert_finetune_dataset.sh DATASET_PATH OUTPUT_PATH TASK_TYPE"
-    echo "for example: sh convert_finetune_dataset.sh /path/msra_ner/ /path/msra_ner/mindrecord/ msra_ner"
-    echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli, dbqa]"
+    echo "sh convert_pretraining_dataset.sh DATASET_PATH OUTPUT_PATH"
+    echo "for example: sh scripts/convert_pretraining_dataset.sh /path/zh_wiki/ /path/zh_wiki/mindrecord/"
     echo "It is better to use absolute path."
     echo "=============================================================================================================="
 exit 1
@@ -48,24 +47,8 @@ then
 exit 1
 fi
 
-TASK_TYPE=$3
-case $TASK_TYPE in
-  "msra_ner")
-    MAX_SEQ_LEN=256
-    ;;
-  "chnsenticorp")
-    MAX_SEQ_LEN=256
-    ;;
-  "xnli")
-    MAX_SEQ_LEN=512
-    ;;
-  "dbqa")
-    MAX_SEQ_LEN=512
-    ;;
-  esac
-
 CUR_DIR=`pwd`
-MODEL_PATH=${CUR_DIR}/pretrain_models/ernie
+MODEL_PATH=${CUR_DIR}/pretrain_models/converted
 
 # ner task
 # train dataset
@@ -78,26 +61,3 @@ python ${CUR_DIR}/src/task_reader.py  \
     --random_seed=1 \
     --input_file="${DATASET_PATH}/train.tsv" \
     --output_file="${OUTPUT_PATH}/${TASK_TYPE}_train.mindrecord"
-
-# dev dataset
-python ${CUR_DIR}/src/reader.py  \
-    --task_type=$TASK_TYPE \
-    --label_map_config="${DATASET_PATH}/label_map.json" \
-    --vocab_path="${MODEL_PATH}/vocab.txt" \
-    --max_seq_len=$MAX_SEQ_LEN \
-    --do_lower_case="true" \
-    --random_seed=1 \
-    --input_file="${DATASET_PATH}/dev.tsv" \
-    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_dev.mindrecord"
-
-# test dataset
-python ${CUR_DIR}/src/reader.py  \
-    --task_type=$TASK_TYPE \
-    --label_map_config="${DATASET_PATH}/label_map.json" \
-    --vocab_path="${MODEL_PATH}/vocab.txt" \
-    --max_seq_len=$MAX_SEQ_LEN \
-    --do_lower_case="true" \
-    --random_seed=1 \
-    --input_file="${DATASET_PATH}/test.tsv" \
-    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_test.mindrecord"
-    

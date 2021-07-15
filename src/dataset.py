@@ -22,26 +22,22 @@ import mindspore.dataset.transforms.c_transforms as C
 from mindspore import log as logger
 from .config import cfg
 
-def create_ernie_dataset(device_num=1, rank=0, do_shuffle="true", data_dir=None, schema_dir=None):
+def create_ernie_dataset(device_num=1, rank=0, do_shuffle=True, data_file_path=None, schema_dir=None):
     """create train dataset"""
     # apply repeat operations
-    files = os.listdir(data_dir)
-    data_files = []
-    for file_name in files:
-        if "tfrecord" in file_name:
-            data_files.append(os.path.join(data_dir, file_name))
-    data_set = ds.TFRecordDataset(data_files, schema_dir if schema_dir != "" else None,
-                                  columns_list=["input_ids", "input_mask", "segment_ids", "next_sentence_labels",
-                                                "masked_lm_positions", "masked_lm_ids", "masked_lm_weights"],
-                                  shuffle=ds.Shuffle.FILES if do_shuffle == "true" else False,
-                                  num_shards=device_num, shard_id=rank, shard_equal_rows=True)
+    data_set = ds.MindDataset(data_file_path,
+                            columns_list=["input_ids", "input_mask", "token_type_id", "next_sentence_labels",
+                                        "masked_lm_positions", "masked_lm_ids", "masked_lm_weights"],
+                            shuffle=do_shuffle,
+                            num_shards=device_num, shard_id=rank, shard_equal_rows=True)
+
     ori_dataset_size = data_set.get_dataset_size()
     print('origin dataset size: ', ori_dataset_size)
     type_cast_op = C.TypeCast(mstype.int32)
     data_set = data_set.map(operations=type_cast_op, input_columns="masked_lm_ids")
     data_set = data_set.map(operations=type_cast_op, input_columns="masked_lm_positions")
     data_set = data_set.map(operations=type_cast_op, input_columns="next_sentence_labels")
-    data_set = data_set.map(operations=type_cast_op, input_columns="segment_ids")
+    data_set = data_set.map(operations=type_cast_op, input_columns="token_type_id")
     data_set = data_set.map(operations=type_cast_op, input_columns="input_mask")
     data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
     # apply batch operations
@@ -78,7 +74,8 @@ def create_mrc_dataset(batch_size=1,
                         rank_size=1,
                         rank_id=0,
                         do_shuffle=True,
-                        is_training=True):
+                        is_training=True,
+                        drop_reminder=False):
     """create finetune or evaluation dataset"""
     type_cast_op = C.TypeCast(mstype.int32)
     if is_training:
@@ -105,5 +102,5 @@ def create_mrc_dataset(batch_size=1,
         data_set = data_set.map(operations=type_cast_op, input_columns="unique_id")
     data_set = data_set.repeat(repeat_count)
     # apply batch operations
-    data_set = data_set.batch(batch_size, drop_remainder=False)
+    data_set = data_set.batch(batch_size, drop_remainder=drop_reminder)
     return data_set

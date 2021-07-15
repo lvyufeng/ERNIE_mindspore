@@ -18,7 +18,7 @@ then
     echo "=============================================================================================================="
     echo "Please run the script as: "
     echo "sh run_standalone_finetune.sh [TASK_TYPE]"
-    echo "for example: sh run_standalone_finetune.sh msra_ner"
+    echo "for example: sh scripts/run_standalone_finetune.sh msra_ner"
     echo "TASK_TYPE including [msra_ner, chnsenticorp]"
     echo "=============================================================================================================="
 exit 1
@@ -34,7 +34,7 @@ export GLOG_log_dir=${CUR_DIR}/ms_log
 export GLOG_logtostderr=0
 
 TASK_TYPE=$1
-DEVICE_ID=5
+DEVICE_ID=0
 case $TASK_TYPE in
   "msra_ner")
     PY_NAME=run_ernie_ner

@@ -18,7 +18,7 @@ then
     echo "=============================================================================================================="
     echo "Please run the script as: "
     echo "sh export.sh [CKPT_FILE] [EXPORT_PATH] [TASK_TYPE]"
-    echo "for example: sh sh export.sh /path/ckpt.ckpt /path/ msra_ner"
+    echo "for example: sh scripts/export.sh /path/ckpt.ckpt /path/ msra_ner"
     echo "TASK_TYPE including msra_ner, chnsenticorp"
     echo "It is better to use absolute path."
     echo "=============================================================================================================="

@@ -18,7 +18,7 @@ then
     echo "=============================================================================================================="
     echo "Please run the script as: "
     echo "sh convert_finetune_dataset.sh [DATASET_PATH] [OUTPUT_PATH] [TASK_TYPE]"
-    echo "for example: sh convert_finetune_dataset.sh /path/msra_ner/ /path/msra_ner/mindrecord/ msra_ner"
+    echo "for example: sh scripts/convert_finetune_dataset.sh /path/msra_ner/ /path/msra_ner/mindrecord/ msra_ner"
     echo "TASK_TYPE including [msra_ner, chnsenticorp, xnli, dbqa, drcd, cmrc]"
     echo "It is better to use absolute path."
     echo "=============================================================================================================="
@@ -88,7 +88,7 @@ case $TASK_TYPE in
   "cmrc")
     MAX_SEQ_LEN=512
     MAX_QUERY_LEN=64
-    SHARD_NUM=10
+    SHARD_NUM=1
     FILE_TYPE="json"
     HAVE_TEST="false"
     ;;
