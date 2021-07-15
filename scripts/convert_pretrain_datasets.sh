@@ -17,8 +17,8 @@ if [ $# -ne 2 ]
 then
     echo "=============================================================================================================="
     echo "Please run the script as: "
-    echo "sh convert_pretraining_dataset.sh DATASET_PATH OUTPUT_PATH"
-    echo "for example: sh scripts/convert_pretraining_dataset.sh /path/zh_wiki/ /path/zh_wiki/mindrecord/"
+    echo "sh convert_pretrain_dataset.sh [DATASET_PATH] [OUTPUT_PATH]"
+    echo "for example: sh scripts/convert_pretrain_dataset.sh /path/zh_wiki/ /path/zh_wiki/mindrecord/"
     echo "It is better to use absolute path."
     echo "=============================================================================================================="
 exit 1
@@ -52,12 +52,16 @@ MODEL_PATH=${CUR_DIR}/pretrain_models/converted
 
 # ner task
 # train dataset
-python ${CUR_DIR}/src/task_reader.py  \
-    --task_type=$TASK_TYPE \
-    --label_map_config="${DATASET_PATH}/label_map.json" \
+python ${CUR_DIR}/src/pretrain_reader.py  \
     --vocab_path="${MODEL_PATH}/vocab.txt" \
-    --max_seq_len=$MAX_SEQ_LEN \
-    --do_lower_case="true" \
+    --max_seq_len=512 \
     --random_seed=1 \
-    --input_file="${DATASET_PATH}/train.tsv" \
-    --output_file="${OUTPUT_PATH}/${TASK_TYPE}_train.mindrecord"
+    --do_lower_case="true" \
+    --short_seq_prob=0.1 \
+    --masked_word_prob=0.15 \
+    --max_predictions_per_seq=20 \
+    --dupe_factor=10 \
+    --generate_neg_sample="true" \
+    --input_file=$DATASET_PATH \
+    --output_file=$OUTPUT_PATH/pretrain_data.mindrecord \
+    --shard_num=10
