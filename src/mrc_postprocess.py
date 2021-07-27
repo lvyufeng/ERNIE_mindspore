@@ -1,4 +1,4 @@
-# Copyright 2020 Huawei Technologies Co., Ltd
+# Copyright 2021 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -113,7 +113,6 @@ def calc_em_score(answers, prediction):
         prediction_ = remove_punctuation(prediction)
         if ans_ == prediction_:
             em = 1
-            # print(ans_, prediction_)
             break
     return em
 

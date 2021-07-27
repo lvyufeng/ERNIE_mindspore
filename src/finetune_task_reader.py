@@ -27,7 +27,7 @@ from src.tokenizer import FullTokenizer, convert_to_unicode, tokenize_chinese_ch
 
 def csv_reader(fd, delimiter='\t'):
     """
-    csv 文件读取
+    read csv file
     """
     def gen():
         for i in fd:

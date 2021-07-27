@@ -215,8 +215,7 @@ class ErnieDataReader:
         else:
             self.mask_type = "mask_char"
 
-        instances = self.create_training_instances()
-        sample_generator = generator(instances)
+        sample_generator = self.create_training_instances()
         if self.generate_neg_sample:
             sample_generator = self.mixin_negative_samples(
                 sample_generator)
@@ -233,8 +232,7 @@ class ErnieDataReader:
 
     def create_training_instances(self):
         """Create `TrainingInstance`s from raw text."""
-        all_documents = [[]]
-        all_documents_segs = [[]]
+        
         p1 = re.compile('<doc (.*)>')
         p2 = re.compile('</doc>')
         cc = OpenCC('t2s')
@@ -245,6 +243,8 @@ class ErnieDataReader:
         # (2) Blank lines between documents. Document boundaries are needed so
         # that the "next sentence prediction" task doesn't span between documents.
         for input_file in self.file_list:
+            all_documents = [[]]
+            all_documents_segs = [[]]
             with open(input_file, "r", errors='ignore') as reader:
                 while True:
                     line = reader.readline()
@@ -266,19 +266,20 @@ class ErnieDataReader:
                     if tokens:
                         all_documents[-1].append(tokens)
                         all_documents_segs[-1].append(seg_labels)
-        # Remove empty documents
-        all_documents = [x for x in all_documents if x]
-        all_documents_segs = [x for x in all_documents_segs if x]
+            # Remove empty documents
+            all_documents = [x for x in all_documents if x]
+            all_documents_segs = [x for x in all_documents_segs if x]
 
-        instances = []
-        for _ in range(self.dupe_factor):
-            for document_index in range(len(all_documents)):
-                instances.extend(
-                    self.create_instances_from_document(
-                        all_documents, all_documents_segs, document_index))
+            instances = []
+            for _ in range(self.dupe_factor):
+                for document_index in range(len(all_documents)):
+                    instances.extend(
+                        self.create_instances_from_document(
+                            all_documents, all_documents_segs, document_index))
 
-        self.global_rng.shuffle(instances)
-        return instances
+            self.global_rng.shuffle(instances)
+            for instance in instances:
+                yield instance
 
     def create_instances_from_document(self, all_documents, all_documents_segs, document_index):
         """Creates `TrainingInstance`s for a single document."""
@@ -289,7 +290,7 @@ class ErnieDataReader:
                     break
             return random_document_index
 
-        def get_tokens_b(random_document, random_document_segs, tokens_b, 
+        def get_tokens_b(random_document, random_document_segs, tokens_b,
                          tokens_b_segs, random_start, target_b_length):
             for j in range(random_start, len(random_document)):
                 tokens_b.extend(random_document[j])
@@ -360,7 +361,7 @@ class ErnieDataReader:
                         random_document = all_documents[random_document_index]
                         random_document_segs = all_documents_segs[random_document_index]
                         random_start = self.global_rng.randint(0, len(random_document) - 1)
-                        tokens_b, tokens_b_segs = get_tokens_b(random_document, random_document_segs, tokens_b, 
+                        tokens_b, tokens_b_segs = get_tokens_b(random_document, random_document_segs, tokens_b,
                                                                tokens_b_segs, random_start, target_b_length)
                         # We didn't actually use these segments so we "put them back" so
                         # they don't go to waste.
@@ -604,8 +605,8 @@ def main():
 
     parser.add_argument("--generate_neg_sample", type=str, default="true", help="random seed number")
 
-    parser.add_argument("--input_file", type=str, default="data/text/AA/wiki_00", help="raw data file")
-    parser.add_argument("--output_file", type=str, default="data/text/wiki.mindrecord", help="minddata file")
+    parser.add_argument("--input_file", type=str, default="", help="raw data file")
+    parser.add_argument("--output_file", type=str, default="", help="minddata file")
     parser.add_argument("--shard_num", type=int, default=1, help="output file shard number")
     args_opt = parser.parse_args()
 

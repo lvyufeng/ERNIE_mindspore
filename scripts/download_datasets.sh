@@ -40,7 +40,7 @@ case $TASK_TYPE in
   "pretrain")
     DATA_URL=https://dumps.wikimedia.org/zhwiki/latest/zhwiki-latest-pages-articles.xml.bz2
     wget --no-check-certificate ${DATA_URL} 
-    python -m wikiextractor.WikiExtractor -b 1024M -o extracted zhwiki-latest-pages-articles.xml.bz2
+    python -m wikiextractor.WikiExtractor -o extracted zhwiki-latest-pages-articles.xml.bz2
     /bin/rm zhwiki-latest-pages-articles.xml.bz2
     if [ ! -d $DATA_PATH ]
     then

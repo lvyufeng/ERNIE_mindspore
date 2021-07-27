@@ -14,7 +14,7 @@
 # ============================================================================
 
 '''
-Bert evaluation assessment method script.
+Ernie evaluation assessment method script.
 '''
 import numpy as np
 from mindspore.nn.metrics import ConfusionMatrixMetric
@@ -96,7 +96,7 @@ class SpanF1():
 
     def tag2span(self, ids):
         '''
-        conbert ids list to span mode
+        ids list to span mode
         '''
         labels = np.array([self.id2label[id] for id in ids])
         spans = []
