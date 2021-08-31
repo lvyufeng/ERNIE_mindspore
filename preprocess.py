@@ -25,7 +25,7 @@ def parse_args():
     """set and check parameters."""
     parser = argparse.ArgumentParser(description="ernie preprocess")
     parser.add_argument("--task_type", type=str, default="false",
-                        choices=["msra_ner", "chnsenticorp", "xnli", "dbqa", "drcd", "cmrc"],
+                        choices=["chnsenticorp", "xnli", "dbqa"],
                         help="Eval task type, default is msra_ner")
     parser.add_argument("--eval_data_shuffle", type=str, default="false", choices=["true", "false"],
                         help="Enable eval data shuffle, default is false")
@@ -33,7 +33,6 @@ def parse_args():
     parser.add_argument("--eval_data_file_path", type=str, default="",
                         help="Data path, it is better to use absolute path")
     parser.add_argument('--result_path', type=str, default='./preprocess_Result/', help='result path')
-
     args_opt = parser.parse_args()
 
     if args_opt.eval_data_file_path == "":
@@ -43,21 +42,11 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    finetune_tasks = ["msra_ner", "chnsenticorp", "xnli", "dbqa"]
-    msrc_tasks = ["drcd", "cmrc"]
-    if args.task_type in finetune_tasks:
-        ds = create_finetune_dataset(batch_size=args.eval_batch_size,
+    args.eval_batch_size = 1
+    ds = create_finetune_dataset(batch_size=args.eval_batch_size,
                                      repeat_count=1,
                                      data_file_path=args.eval_data_file_path,
                                      do_shuffle=(args.eval_data_shuffle.lower() == "true"))
-    elif args.task_type in msrc_tasks:
-        ds = create_mrc_dataset(batch_size=args.eval_batch_size,
-                                repeat_count=1,
-                                data_file_path=args.eval_data_file_path,
-                                do_shuffle=(args.eval_data_shuffle.lower() == "true"),
-                                is_training=False)
-    else:
-        raise ValueError('Unsupported task type.')
 
     ids_path = os.path.join(args.result_path, "00_data")
     mask_path = os.path.join(args.result_path, "01_data")
@@ -72,10 +61,7 @@ if __name__ == "__main__":
         input_ids = data["input_ids"]
         input_mask = data["input_mask"]
         token_type_id = data["token_type_id"]
-        if args.task_type in finetune_tasks:
-            label_ids = data["label_ids"]
-        else:
-            unique_id = unique_id["unique_id"]
+        label_ids = data["label_ids"]
 
         file_name = args.task_type + "_batch_" + str(args.eval_batch_size) + "_" + str(idx) + ".bin"
         ids_file_path = os.path.join(ids_path, file_name)
@@ -88,8 +74,6 @@ if __name__ == "__main__":
         token_type_id.tofile(token_file_path)
 
         label_file_path = os.path.join(label_path, file_name)
-        if args.task_type in finetune_tasks:
-            label_ids.tofile(label_file_path)
-        else:
-            unique_id.tofile(label_file_path)
+        label_ids.tofile(label_file_path)
+
     print("=" * 20, "export bin files finished", "=" * 20)
