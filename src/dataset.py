@@ -66,7 +66,7 @@ def create_finetune_dataset(batch_size=1,
     data_set = data_set.map(operations=type_cast_op, input_columns="input_ids")
     data_set = data_set.repeat(repeat_count)
     # apply batch operations
-    data_set = data_set.batch(batch_size, drop_remainder=False)
+    data_set = data_set.batch(batch_size, drop_remainder=True)
     return data_set
 
 def create_mrc_dataset(batch_size=1,

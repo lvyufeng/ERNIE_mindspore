@@ -17,8 +17,8 @@ if [ $# -ne 3 ]
 then
     echo "=============================================================================================================="
     echo "Please run the script as: "
-    echo "sh export.sh [CKPT_FILE] [EXPORT_PATH] [TASK_TYPE]"
-    echo "for example: sh scripts/export.sh /path/ckpt.ckpt /path/ msra_ner"
+    echo "sh export.sh CKPT_FILE EXPORT_PATH TASK_TYPE"
+    echo "for example: sh sh export.sh /path/ckpt.ckpt /path/ msra_ner"
     echo "TASK_TYPE including msra_ner, chnsenticorp"
     echo "It is better to use absolute path."
     echo "=============================================================================================================="
@@ -48,20 +48,22 @@ exit 1
 fi
 
 TASK_TYPE=$3
+NUMBER_LABELS=3
+EVAL_BATCH_SIZE=1
 case $TASK_TYPE in
   "msra_ner")
     NUMBER_LABELS=7
     ;;
-  "chnsenticorp")
+  "dbqa")
     NUMBER_LABELS=2
-  ;;
+    ;;
   esac
 
 CUR_DIR=`pwd`
 python ${CUR_DIR}/export.py \
         --task_type=${TASK_TYPE} \
         --device_id=0 \
-        --batch_size=1 \
+        --batch_size=${EVAL_BATCH_SIZE} \
         --number_labels=${NUMBER_LABELS} \
         --ckpt_file="${CKPT_FILE}" \
         --file_name="${EXPORT_PATH}/${TASK_TYPE}.mindir" \

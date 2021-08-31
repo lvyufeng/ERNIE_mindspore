@@ -23,13 +23,13 @@ from src.finetune_eval_config import ernie_net_cfg
 from src.finetune_eval_model import ErnieCLSModel, ErnieNERModel
 
 parser = argparse.ArgumentParser(description="ERNIE finetune export")
-parser.add_argument("--task_type", type=str, choices=["msra_ner", "chnsenticorp"],
-                    default="msra_ner", help="task type to export")
+parser.add_argument("--task_type", type=str, choices=["chnsenticorp", "xnli", "dbqa"],
+                    default="chnsenticorp", help="task type to export")
 parser.add_argument("--device_id", type=int, default=0, help="Device id")
-parser.add_argument("--batch_size", type=int, default=32, help="batch size")
-parser.add_argument("--number_labels", type=int, default=3, help="batch size")
+parser.add_argument("--batch_size", type=int, default=1, help="batch size")
+parser.add_argument("--number_labels", type=int, default=3, help="number of labels ")
 parser.add_argument("--ckpt_file", type=str, required=True, help="Ernie ckpt file.")
-parser.add_argument("--file_name", type=str, default="emotect", help="Ernie output air name.")
+parser.add_argument("--file_name", type=str, default="ernie_finetune", help="Ernie output air name.")
 parser.add_argument("--file_format", type=str, choices=["AIR", "ONNX", "MINDIR"],
                     default="AIR", help="file format")
 parser.add_argument("--device_target", type=str, default="Ascend",
@@ -43,7 +43,10 @@ if args.device_target == "Ascend":
 if __name__ == "__main__":
     if args.task_type == 'msra_ner':
         net = ErnieNERModel(ernie_net_cfg, False, num_labels=args.number_labels)
-    elif args.task_type == 'chnsenticorp':
+    elif args.task_type == "chnsenticorp":
+        net = ErnieCLSModel(ernie_net_cfg, False, num_labels=args.number_labels)
+    elif args.task_type in ["xnli", "dbqa"]:
+        ernie_net_cfg.seq_length = 512
         net = ErnieCLSModel(ernie_net_cfg, False, num_labels=args.number_labels)
     else:
         raise ValueError('unsupported task type')

@@ -15,7 +15,7 @@
 # ============================================================================
 
 if [[ $# -lt 4 || $# -gt 5 ]]; then
-    echo "Usage: bash run_infer_310.sh [MINDIR_PATH] [DATA_FILE_PATH] [NEED_PREPROCESS] [DEVICE_ID]
+    echo "Usage: bash ./scripts/run_infer_310.sh [MINDIR_PATH] [DATA_FILE_PATH] [NEED_PREPROCESS] [TASK_TYPE] [DEVICE_ID]
     NEED_PREPROCESS means weather need preprocess or not, it's value is 'y' or 'n'.
     DEVICE_ID is optional, it can be set by environment variable device_id, otherwise the value is zero"
 exit 1
@@ -38,10 +38,12 @@ else
   exit 1
 fi
 
+task_type=$4
 device_id=0
-if [ $# == 4 ]; then
-    device_id=$4
+if [ $# == 5 ]; then
+    device_id=$5
 fi
+
 
 echo "mindir name: "$model
 echo "eval_data_file_path: "$eval_data_file_path
@@ -68,12 +70,12 @@ function preprocess_data()
         rm -rf ./preprocess_result
     fi
     mkdir preprocess_result
-    python3.7 preprocess.py --eval_data_file_path=$eval_data_file_path  --result_path=./preprocess_result/
+    python3.7 preprocess.py --eval_data_file_path=$eval_data_file_path --task_type=$task_type --result_path=./preprocess_result/
 }
 
 function compile_app()
 {
-    cd ../ascend310_infer || exit
+    cd ./ascend310_infer || exit
     bash build.sh &> build.log
 }
 
@@ -95,7 +97,7 @@ function infer()
 
 function cal_acc()
 {
-    python3.7 postprocess.py --result_dir=./result_files --label_dir=./preprocess_result/03_data &> acc.log
+    python3.7 postprocess.py --result_dir=./result_files --task_type=$task_type --label_dir=./preprocess_result/03_data &> acc.log
 }
 
 if [ $need_preprocess == "y" ]; then
